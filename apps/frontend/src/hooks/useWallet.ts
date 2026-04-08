@@ -32,8 +32,8 @@ export function useWallet(): WalletState {
   const { switchChainAsync } = useSwitchChain();
 
   const connect = useCallback(async () => {
-    // 첫 번째 injected 커넥터 사용 (config에 injected()만 등록되어 있음).
-    const injected = connectors[0];
+    // type==='injected'로 검색 — config에 connector를 추가해도 깨지지 않는다.
+    const injected = connectors.find((c) => c.type === 'injected');
     if (!injected) {
       window.open('https://metamask.io/download/', '_blank');
       return;
