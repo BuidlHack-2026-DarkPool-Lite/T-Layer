@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useAccount, useChainId, useConnect, useConnectors, useDisconnect, useSwitchChain } from 'wagmi';
+import { useAccount, useConnect, useConnectors, useDisconnect, useSwitchChain } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
 import { BSC_TESTNET } from '../config';
 
@@ -21,9 +21,10 @@ interface WalletState {
  * useEscrow 훅이 wagmi config로부터 wallet client를 직접 얻어 처리한다.
  */
 export function useWallet(): WalletState {
-  const { address, isConnected } = useAccount();
-  const chainId = useChainId();
-  const isCorrectChain = chainId === BSC_TESTNET.chainId;
+  // chainId는 wallet-scoped 값을 쓴다. useChainId()는 미연결 상태에서도
+  // config의 active chain을 그대로 반환해서 isCorrectChain false positive를 만든다.
+  const { address, isConnected, chainId } = useAccount();
+  const isCorrectChain = isConnected && chainId === BSC_TESTNET.chainId;
 
   const connectors = useConnectors();
   const { connectAsync } = useConnect();
