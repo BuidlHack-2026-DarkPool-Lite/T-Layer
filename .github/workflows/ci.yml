@@ -11,6 +11,13 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # GitHub Actions runner는 2026-06-02부터 Node.js 24를 강제하고
+  # 2026-09-16부터 Node 20을 제거한다. JavaScript 액션들이 매 실행마다
+  # deprecation 경고를 띄우는 것을 막고 강제 전환 시점에 깨지지 않도록
+  # 명시적으로 Node 24 런타임을 opt-in.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   # 변경 영역 감지 — 후속 잡들은 outputs에 의존해서 조건부 실행.
   changes:
