@@ -41,13 +41,29 @@ bytecode는 의도적으로 제외했다 — engine/frontend는 호출만 하지
 
 ### engine (Python)
 
+`packages/contracts-abi/`가 있는 가장 가까운 조상 디렉토리를 찾는 upward-search 패턴을 권장한다. 컨슈머 파일이 \`apps/engine/\` 안 어디에 있든 동작하고, 모노레포 구조 변경에도 강하다.
+
 ```python
 import json
 from pathlib import Path
 
-ABI_PATH = Path(__file__).resolve().parents[3] / "packages" / "contracts-abi" / "DarkPoolEscrow.json"
+
+def _find_repo_root() -> Path:
+    """packages/contracts-abi 가 존재하는 가장 가까운 조상을 찾는다."""
+    for ancestor in Path(__file__).resolve().parents:
+        if (ancestor / "packages" / "contracts-abi").is_dir():
+            return ancestor
+    raise FileNotFoundError(
+        "packages/contracts-abi 디렉토리를 어떤 조상에서도 찾을 수 없음"
+    )
+
+
+REPO_ROOT = _find_repo_root()
+ABI_PATH = REPO_ROOT / "packages" / "contracts-abi" / "DarkPoolEscrow.json"
 DARKPOOL_ESCROW_ABI = json.loads(ABI_PATH.read_text())["abi"]
 ```
+
+\`parents[N]\` 같은 고정 깊이 인덱스는 컨슈머 파일이 이동하면 조용히 깨지므로 사용하지 않는다.
 
 ### frontend (TypeScript / Vite)
 
