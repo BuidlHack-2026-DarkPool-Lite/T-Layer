@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ethers } from 'ethers';
+import { parseUnits } from 'viem';
 import { Shield, Wallet, Lock, Activity, ChevronDown, X, Check, Loader2, CheckCircle2, ExternalLink, Cpu, Fingerprint, Trash2, AlertTriangle, LogOut, EyeOff, ShieldCheck } from 'lucide-react';
 import { useWallet } from './hooks/useWallet';
 import { useEscrow } from './hooks/useEscrow';
@@ -74,7 +74,7 @@ export default function App() {
 
   // Wallet (실제 MetaMask)
   const wallet = useWallet();
-  const escrow = useEscrow(wallet.signer, wallet.provider);
+  const escrow = useEscrow();
 
   // Token & Market
   const [selectedToken, setSelectedToken] = useState(TOKENS[0]);
@@ -197,8 +197,8 @@ export default function App() {
       const depositSymbol = orderSide === 'buy' ? 'USDT' : selectedToken.symbol;
       const tokenAddress = TOKEN_ADDRESSES[depositSymbol];
       const depositAmount = orderSide === 'buy'
-        ? ethers.parseUnits((parseFloat(amount) * parseFloat(price)).toFixed(6), 18)
-        : ethers.parseUnits(amount, 18);
+        ? parseUnits((parseFloat(amount) * parseFloat(price)).toFixed(6), 18)
+        : parseUnits(amount, 18);
 
       // Phase 1: ERC20 Approve
       setFlowState('approve');
