@@ -1,0 +1,161 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 동일 ref에서 새 push가 들어오면 진행 중인 워크플로우를 취소.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 변경 영역 감지 — 후속 잡들은 outputs에 의존해서 조건부 실행.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      engine: ${{ steps.filter.outputs.engine }}
+      contracts: ${{ steps.filter.outputs.contracts }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      abi: ${{ steps.filter.outputs.abi }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            engine:
+              - 'apps/engine/**'
+              - 'packages/contracts-abi/DarkPoolEscrow.json'
+              - '.github/workflows/ci.yml'
+            contracts:
+              - 'apps/contracts/**'
+              - 'tools/sync-abi.mjs'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'apps/frontend/**'
+              - 'packages/contracts-abi/DarkPoolEscrow.ts'
+              - '.github/workflows/ci.yml'
+            abi:
+              - 'apps/contracts/**'
+              - 'tools/sync-abi.mjs'
+              - 'packages/contracts-abi/**'
+              - '.github/workflows/ci.yml'
+
+  engine:
+    needs: changes
+    if: needs.changes.outputs.engine == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/engine
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: uv 설치
+        uses: astral-sh/setup-uv@v6
+
+      - name: 의존성 설치
+        run: uv sync
+
+      - name: 린트
+        run: uv run ruff check .
+
+      - name: 테스트
+        run: uv run pytest -v --tb=short
+
+  contracts:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/contracts
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/contracts/package-lock.json
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: 컴파일
+        run: npm run compile
+
+      - name: 테스트
+        run: npm test
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: 린트
+        run: npm run lint
+
+      - name: 빌드
+        run: npm run build
+
+  # contracts/sync-abi.mjs가 만지는 산출물이 stale 상태로 commit되는 사고 방지.
+  # 컴파일 후 packages/contracts-abi/ 가 작업 트리와 git 트리가 다르면 실패.
+  abi-sync:
+    needs: changes
+    if: needs.changes.outputs.abi == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/contracts/package-lock.json
+
+      - name: contracts 의존성 설치
+        working-directory: apps/contracts
+        run: npm ci
+
+      - name: 컴파일 (postcompile 훅이 sync-abi 실행)
+        working-directory: apps/contracts
+        run: npm run compile
+
+      - name: ABI 산출물 stale 검증
+        run: |
+          # 'git diff'는 수정된 추적 파일만 본다 — sync-abi.mjs가 새로 만든
+          # untracked 산출물(SOURCES에 컨트랙트가 추가되는 미래 케이스)을 놓침.
+          # status --porcelain은 modified + untracked 모두 한 번에 검출.
+          changes="$(git status --porcelain -- packages/contracts-abi/)"
+          if [ -n "$changes" ]; then
+            echo "::error::packages/contracts-abi/ 가 stale. 'cd apps/contracts && npm run compile' 후 변경된 산출물을 commit하세요."
+            echo "$changes"
+            exit 1
+          fi
