@@ -150,7 +150,12 @@ jobs:
 
       - name: ABI 산출물 stale 검증
         run: |
-          if ! git diff --exit-code packages/contracts-abi/; then
+          # 'git diff'는 수정된 추적 파일만 본다 — sync-abi.mjs가 새로 만든
+          # untracked 산출물(SOURCES에 컨트랙트가 추가되는 미래 케이스)을 놓침.
+          # status --porcelain은 modified + untracked 모두 한 번에 검출.
+          changes="$(git status --porcelain -- packages/contracts-abi/)"
+          if [ -n "$changes" ]; then
             echo "::error::packages/contracts-abi/ 가 stale. 'cd apps/contracts && npm run compile' 후 변경된 산출물을 commit하세요."
+            echo "$changes"
             exit 1
           fi
