@@ -4,7 +4,7 @@ DarkPool Lite 컨트랙트의 **단일 ABI 진실원**.
 
 ## 무엇
 
-`apps/contracts/`의 Hardhat 컴파일 산출물에서 ABI만 추출한 JSON 파일들이 여기에 들어간다. engine과 frontend는 **반드시 이 디렉토리에서만** ABI를 읽는다. 다른 곳에 ABI를 손으로 박으면 안 된다.
+`apps/contracts/`의 Hardhat 컴파일 산출물에서 ABI만 추출한 JSON 파일들이 여기에 들어간다. engine과 frontend는 **반드시 이 디렉토리에서만** ABI를 읽는다. 다른 곳에 ABI를 수작업으로 박으면 안 된다.
 
 ## 어떻게 갱신되는가
 
