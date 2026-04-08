@@ -4,6 +4,7 @@
   "description": "DarkPool Lite – TEE-based private OTC swap contracts on BSC",
   "scripts": {
     "compile": "hardhat compile",
+    "postcompile": "node ../../tools/sync-abi.mjs",
     "test": "hardhat test",
     "test:coverage": "hardhat coverage",
     "deploy:bsc-testnet": "hardhat run scripts/deploy.js --network bscTestnet",
