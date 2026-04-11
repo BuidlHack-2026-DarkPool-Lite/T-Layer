@@ -13,7 +13,7 @@ from src.matching.runner import run_matching_cycle
 from src.mm_bot.escrow_client import MMEscrowClient, decimal_to_wei
 from src.mm_bot.inventory import InventoryState
 from src.mm_bot.order_gen import bid_ask_prices
-from src.mm_bot.price_feed import PriceFeedListener, wall_time
+from src.mm_bot.price_feed import BinanceWsFeed, PriceFeedListener, wall_time
 from src.mm_bot.risk import RiskConfig, RiskController
 from src.mm_bot.spread import SpreadCalculator, SpreadConfig
 from src.models.order import Order
@@ -57,10 +57,12 @@ class MMBot:
             pw, bw = (w0 / tot, w1 / tot) if tot > 0 else (0.6, 0.4)
         else:
             pw, bw = 0.6, 0.4
+        self._binance_ws = BinanceWsFeed()
         self._price_feed = PriceFeedListener(
             pancake_weight=pw,
             binance_weight=bw,
             outlier_threshold_pct=float(pr.get("outlier_threshold_pct", 2.0)),
+            binance_ws=self._binance_ws,
         )
 
         sp = settings.spread
@@ -156,16 +158,22 @@ class MMBot:
             self._wallet or "(none)",
             self._escrow.enabled,
         )
-        while self._running:
-            try:
-                for pair in self._cfg.pairs:
-                    await self._tick_pair(pair.token_pair)
-            except asyncio.CancelledError:
-                break
-            except Exception:
-                logger.exception("MM 봇 틱 실패")
-            await asyncio.sleep(self._refresh_sec)
-        logger.info("MM 봇 종료")
+        for pair in self._cfg.pairs:
+            self._binance_ws.subscribe(pair.token_pair)
+        self._binance_ws.start()
+        try:
+            while self._running:
+                try:
+                    for pair in self._cfg.pairs:
+                        await self._tick_pair(pair.token_pair)
+                except asyncio.CancelledError:
+                    break
+                except Exception:
+                    logger.exception("MM 봇 틱 실패")
+                await asyncio.sleep(self._refresh_sec)
+        finally:
+            await self._binance_ws.stop()
+            logger.info("MM 봇 종료")
 
     def stop(self) -> None:
         self._running = False

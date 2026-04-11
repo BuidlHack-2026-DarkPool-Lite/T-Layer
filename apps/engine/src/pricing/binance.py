@@ -27,6 +27,14 @@ def _normalize_token_pair(token_pair: str) -> str | None:
     return None
 
 
+def binance_symbol(token_pair: str) -> str | None:
+    """token_pair 를 Binance REST/WS 심볼(대문자)로 변환. 지원 안 되면 None."""
+    norm = _normalize_token_pair(token_pair)
+    if norm is None:
+        return None
+    return _PAIR_SYMBOLS[norm]
+
+
 async def fetch_binance_price(token_pair: str) -> float | None:
     """Binance `GET /api/v3/ticker/price`로 심볼 현재가를 조회해 float로 반환한다."""
     norm = _normalize_token_pair(token_pair)
