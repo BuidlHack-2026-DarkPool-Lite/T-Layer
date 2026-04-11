@@ -53,6 +53,10 @@ def _parse_book_ticker(raw: str | bytes) -> float | None:
         return None
     if bid <= 0 or ask <= 0:
         return None
+    # crossed top-of-book 은 Binance bookTicker 에서 발생 불가. 나왔다면
+    # corrupted payload 이므로 뒤집힌 mid 로 호가를 내지 않도록 거절.
+    if bid > ask:
+        return None
     return (bid + ask) / 2.0
 
 

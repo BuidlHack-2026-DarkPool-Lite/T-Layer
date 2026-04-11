@@ -50,6 +50,7 @@ def test_parse_book_ticker_rejects_malformed() -> None:
     assert _parse_book_ticker('{"b":"0","a":"0"}') is None  # 0 가격 거절
     assert _parse_book_ticker('{"b":"-1","a":"1"}') is None  # 음수 거절
     assert _parse_book_ticker("[1, 2, 3]") is None  # dict 아님
+    assert _parse_book_ticker('{"b":"101.0","a":"100.0"}') is None  # crossed (bid > ask)
 
 
 def test_binance_ws_cache_fresh_vs_stale() -> None:
