@@ -58,3 +58,19 @@ export async function getOrderStatus(orderId: string): Promise<OrderResponse> {
 export async function cancelOrderApi(orderId: string): Promise<OrderResponse> {
   return request<OrderResponse>(`/order/${orderId}`, { method: 'DELETE' });
 }
+
+/** TEE Attestation 검증 결과 */
+export interface AttestationResult {
+  success: boolean;
+  enclave_measurement: string;
+  signing_addresses: string[];
+  gpu_verified: boolean;
+  gpu_model: string;
+  code_integrity: string;
+  timestamp: string;
+}
+
+/** TEE 환경 사전 검증 — GET /attestation/verify */
+export async function verifyAttestation(): Promise<AttestationResult> {
+  return request<AttestationResult>('/attestation/verify');
+}
