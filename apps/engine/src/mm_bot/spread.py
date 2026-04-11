@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
-from typing import Deque, Tuple
 
 
 @dataclass
@@ -21,7 +20,7 @@ class SpreadCalculator:
 
     def __init__(self, cfg: SpreadConfig) -> None:
         self._cfg = cfg
-        self._history: Deque[Tuple[float, float]] = deque()
+        self._history: deque[tuple[float, float]] = deque()
 
     def record_mid(self, now: float, mid: float) -> None:
         self._history.append((now, mid))

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING, Deque, Tuple
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.mm_bot.inventory import InventoryState
@@ -25,7 +25,7 @@ class RiskController:
 
     def __init__(self, cfg: RiskConfig) -> None:
         self._cfg = cfg
-        self._prices: Deque[Tuple[float, float]] = deque()
+        self._prices: deque[tuple[float, float]] = deque()
         self._feed_failed = False
         self._paused_until: float = 0.0
 

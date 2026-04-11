@@ -10,16 +10,15 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from src.matching.runner import run_matching_cycle
-from src.models.order import Order
-from src.models.orderbook import OrderBook
-from src.ws import ConnectionManager
-
 from src.mm_bot.escrow_client import MMEscrowClient, decimal_to_wei
 from src.mm_bot.inventory import InventoryState
 from src.mm_bot.order_gen import bid_ask_prices
 from src.mm_bot.price_feed import PriceFeedListener, wall_time
 from src.mm_bot.risk import RiskConfig, RiskController
 from src.mm_bot.spread import SpreadCalculator, SpreadConfig
+from src.models.order import Order
+from src.models.orderbook import OrderBook
+from src.ws import ConnectionManager
 
 if TYPE_CHECKING:
     from src.mm_bot.config import MMSettings
@@ -146,7 +145,11 @@ class MMBot:
 
     async def run_forever(self) -> None:
         self._running = True
-        logger.info("MM 봇 시작 wallet=%s onchain=%s", self._wallet or "(none)", self._escrow.enabled)
+        logger.info(
+            "MM 봇 시작 wallet=%s onchain=%s",
+            self._wallet or "(none)",
+            self._escrow.enabled,
+        )
         while self._running:
             try:
                 for pair in self._cfg.pairs:

@@ -73,7 +73,12 @@ class MMEscrowClient:
         return Account.from_key(self._pk).address
 
     def _w3(self) -> Web3:
-        return Web3(Web3.HTTPProvider(BSC_TESTNET_RPC, request_kwargs={"timeout": _RPC_TIMEOUT_SEC}))
+        return Web3(
+            Web3.HTTPProvider(
+                BSC_TESTNET_RPC,
+                request_kwargs={"timeout": _RPC_TIMEOUT_SEC},
+            )
+        )
 
     def _sign_and_send(self, tx: dict) -> str | None:
         assert self._pk is not None
