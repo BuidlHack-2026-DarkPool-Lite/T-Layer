@@ -55,42 +55,65 @@ def load_mm_settings(path: Path | None = None) -> MMSettings:
         return MMSettings(enabled=False)
 
     try:
-        raw = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+        raw = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     except Exception:
         logger.exception("mm_config.yaml 파싱 실패 — MM 봇 비활성")
         return MMSettings(enabled=False)
 
-    mm = raw.get("mm_bot") or {}
-    if not mm.get("enabled", False):
+    if not isinstance(raw, dict):
+        logger.warning("mm_config.yaml 루트가 매핑이 아님 — MM 봇 비활성")
         return MMSettings(enabled=False)
 
-    pairs_raw = mm.get("pairs") or []
-    pairs: list[MMPairConfig] = []
-    for p in pairs_raw:
-        if not isinstance(p, dict):
-            continue
-        tp = (p.get("token_pair") or f"{p.get('base', 'BNB')}/{p.get('quote', 'USDT')}").strip()
-        pairs.append(
-            MMPairConfig(
-                token_pair=tp,
-                initial_inventory_base=float(p.get("initial_inventory_base", 1000)),
-                initial_inventory_quote=float(p.get("initial_inventory_quote", 300_000)),
-            )
-        )
+    mm = raw.get("mm_bot")
+    if not isinstance(mm, dict):
+        logger.info("mm_config.yaml 에 mm_bot 섹션 없음 — MM 봇 비활성")
+        return MMSettings(enabled=False)
 
-    oc = mm.get("onchain") or {}
+    if not bool(mm.get("enabled", False)):
+        return MMSettings(enabled=False)
+
+    def _as_dict(v: Any) -> dict[str, Any]:
+        return v if isinstance(v, dict) else {}
+
+    pairs_raw = mm.get("pairs")
+    pairs: list[MMPairConfig] = []
+    if isinstance(pairs_raw, list):
+        for p in pairs_raw:
+            if not isinstance(p, dict):
+                continue
+            tp_raw = p.get("token_pair") or f"{p.get('base', 'BNB')}/{p.get('quote', 'USDT')}"
+            tp = str(tp_raw).strip()
+            try:
+                init_base = float(p.get("initial_inventory_base", 1000))
+                init_quote = float(p.get("initial_inventory_quote", 300_000))
+            except (TypeError, ValueError):
+                logger.warning("mm_config pair 재고 값 파싱 실패 — 기본값 사용: %s", tp)
+                init_base, init_quote = 1000.0, 300_000.0
+            pairs.append(
+                MMPairConfig(
+                    token_pair=tp,
+                    initial_inventory_base=init_base,
+                    initial_inventory_quote=init_quote,
+                )
+            )
+
+    oc = _as_dict(mm.get("onchain"))
+    try:
+        gas_gwei = int(oc.get("gas_price_gwei", 10))
+    except (TypeError, ValueError):
+        gas_gwei = 10
     onchain = MMOnchainConfig(
         base_token=str(oc.get("base_token", "")).strip(),
         quote_token=str(oc.get("quote_token", "")).strip(),
-        gas_price_gwei=int(oc.get("gas_price_gwei", 10)),
+        gas_price_gwei=gas_gwei,
     )
 
     return MMSettings(
         enabled=True,
         pairs=pairs or [MMPairConfig(token_pair="BNB/USDT")],
-        pricing=mm.get("pricing") or {},
-        spread=mm.get("spread") or {},
-        risk=mm.get("risk") or {},
-        order=mm.get("order") or {},
+        pricing=_as_dict(mm.get("pricing")),
+        spread=_as_dict(mm.get("spread")),
+        risk=_as_dict(mm.get("risk")),
+        order=_as_dict(mm.get("order")),
         onchain=onchain,
     )
