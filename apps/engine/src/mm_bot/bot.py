@@ -209,28 +209,47 @@ class MMBot:
         st = self._pair_states[token_pair]
         for key in ("active_buy", "active_sell"):
             oid = st.get(key)
-            if oid:
-                await self._safe_cancel_order(oid)
+            if not oid:
+                continue
+            ok = await self._safe_cancel_order(oid)
+            if ok:
                 st[key] = None
+            else:
+                # 취소 확정 실패 → 에스크로에 예치가 남아있는 상태.
+                # state 를 비우면 봇이 다음 tick 에 새 예치·주문을 만들어
+                # 재고·에스크로 불일치를 일으킨다. 그대로 두면 다음 tick 의
+                # _refresh_quotes 가 다시 취소를 재시도한다.
+                logger.warning(
+                    "MM 주문 취소 확정 실패 — state 유지 (다음 tick 재시도): order=%s",
+                    oid[:8],
+                )
 
-    async def _safe_cancel_order(self, order_id: str) -> None:
+    async def _safe_cancel_order(self, order_id: str) -> bool:
+        """취소 확정 시 True, 확정 실패 시 False.
+
+        Escrow 가 enabled 면 on-chain cancel 이 tx hash 를 돌려줘야 확정으로 간주.
+        enabled 가 아니면 로컬 오더북에서만 제거하고 True.
+        """
         for attempt in range(3):
             try:
                 if self._escrow.enabled:
                     txh = await asyncio.to_thread(self._escrow.cancel_order, order_id)
-                    if txh is None and attempt < 2:
-                        await asyncio.sleep(1.0)
-                        continue
+                    if txh is None:
+                        if attempt < 2:
+                            await asyncio.sleep(1.0)
+                            continue
+                        return False
                 o = self._orderbook.get(order_id)
                 if o and o.is_active:
                     try:
                         self._orderbook.cancel(order_id)
                     except (KeyError, ValueError):
                         pass
-                return
+                return True
             except Exception:
                 logger.exception("MM 주문 취소 실패 order=%s attempt=%s", order_id[:8], attempt + 1)
                 await asyncio.sleep(0.5)
+        return False
 
     async def _refresh_quotes(
         self,
