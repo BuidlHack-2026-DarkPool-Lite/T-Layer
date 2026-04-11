@@ -196,10 +196,32 @@ export default function App() {
   const [attestation, setAttestation] = useState<AttestationResult | null>(null);
   const currentOrderIdRef = useRef<string | null>(null);
 
+  // WebSocket onMessage 와 15s 폴백 setTimeout 이 useEffect/startExecutionFlow
+  // 호출 시점의 state 를 closure 에 캡처하면 stale 값을 읽어 매칭 UI 가
+  // 업데이트되지 않고 폴백이 영원히 동작 안 하는 버그가 있어 ref 로 우회.
+  const flowStateRef = useRef<FlowState>(flowState);
+  const priceRef = useRef(price);
+  const amountRef = useRef(amount);
+  const fallbackTimeoutRef = useRef<number | null>(null);
+
   // Navigation & Orders
   const [activePage, setActivePage] = useState<'trade' | 'orders'>('trade');
   const [orderTab, setOrderTab] = useState<'open' | 'history'>('open');
   const [myOrders, setMyOrders] = useState<Order[]>([]);
+
+  // ─── Ref sync (stale closure 회피) ─────────────────────────────────────────
+  useEffect(() => { flowStateRef.current = flowState; }, [flowState]);
+  useEffect(() => { priceRef.current = price; }, [price]);
+  useEffect(() => { amountRef.current = amount; }, [amount]);
+  // unmount 시 15s 폴백 타임아웃 확실히 제거
+  useEffect(() => {
+    return () => {
+      if (fallbackTimeoutRef.current !== null) {
+        clearTimeout(fallbackTimeoutRef.current);
+        fallbackTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   // ─── Token Balance (온체인 조회) ───────────────────────────────────────────
   useEffect(() => {
@@ -241,7 +263,12 @@ export default function App() {
               result.maker_order_id === currentId ||
               result.taker_order_id === currentId;
 
-            if (isMyOrder && flowState === 'match') {
+            if (isMyOrder && flowStateRef.current === 'match') {
+              // 실 매치가 도착했으므로 15s 폴백 타임아웃 취소
+              if (fallbackTimeoutRef.current !== null) {
+                clearTimeout(fallbackTimeoutRef.current);
+                fallbackTimeoutRef.current = null;
+              }
               // 매칭 단계 애니메이션 (5단계)
               setMatchStep(1);
               setTimeout(() => setMatchStep(2), 600);
@@ -249,10 +276,13 @@ export default function App() {
               setTimeout(() => setMatchStep(4), 1800);
               setTimeout(() => {
                 setMatchStep(5);
+                const orderAmount = amountRef.current;
+                const orderPrice = priceRef.current;
+                const execPrice = result.exec_price || orderPrice;
                 setExecutionResult({
-                  price: result.exec_price || price,
-                  amount: amount,
-                  total: (parseFloat(amount) * parseFloat(result.exec_price || price)).toFixed(2),
+                  price: execPrice,
+                  amount: orderAmount,
+                  total: (parseFloat(orderAmount) * parseFloat(execPrice)).toFixed(2),
                   hash: result.tx_hash || '',
                   filled: 100,
                 });
@@ -362,25 +392,32 @@ export default function App() {
       setMatchStep(1);
 
       // 매칭은 WebSocket에서 처리됨
-      // 만약 15초 안에 매칭 안 되면 pending 상태로 종료
-      setTimeout(() => {
-        if (flowState === 'match') {
-          setMatchStep(2);
-          setTimeout(() => setMatchStep(3), 800);
-          setTimeout(() => setMatchStep(4), 1600);
-          setTimeout(() => setMatchStep(5), 2400);
-          setTimeout(() => {
-            setFlowState('success');
-            setExecutionResult({
-              price: price,
-              amount: amount,
-              total: (parseFloat(amount) * parseFloat(price)).toFixed(2),
-              hash: depositTxHash,
-              filled: 0,
-              pending: true,
-            });
-          }, 2000);
-        }
+      // 만약 15초 안에 매칭 안 되면 pending 상태로 종료.
+      // flowStateRef 를 써서 stale closure 회피, fallbackTimeoutRef 에
+      // id 를 저장해 WS 매치 도착 / resetFlow 시 clearTimeout 가능.
+      if (fallbackTimeoutRef.current !== null) {
+        clearTimeout(fallbackTimeoutRef.current);
+      }
+      fallbackTimeoutRef.current = window.setTimeout(() => {
+        fallbackTimeoutRef.current = null;
+        if (flowStateRef.current !== 'match') return;
+        setMatchStep(2);
+        setTimeout(() => setMatchStep(3), 800);
+        setTimeout(() => setMatchStep(4), 1600);
+        setTimeout(() => setMatchStep(5), 2400);
+        setTimeout(() => {
+          const fallbackPrice = priceRef.current;
+          const fallbackAmount = amountRef.current;
+          setFlowState('success');
+          setExecutionResult({
+            price: fallbackPrice,
+            amount: fallbackAmount,
+            total: (parseFloat(fallbackAmount) * parseFloat(fallbackPrice)).toFixed(2),
+            hash: depositTxHash,
+            filled: 0,
+            pending: true,
+          });
+        }, 2000);
       }, 15000);
 
     } catch (err: any) {
@@ -399,6 +436,10 @@ export default function App() {
   };
 
   const resetFlow = () => {
+    if (fallbackTimeoutRef.current !== null) {
+      clearTimeout(fallbackTimeoutRef.current);
+      fallbackTimeoutRef.current = null;
+    }
     setFlowState('idle');
     setAmount('');
     setPrice('');
