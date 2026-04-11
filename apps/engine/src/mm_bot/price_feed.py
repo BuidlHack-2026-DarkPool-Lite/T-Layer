@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 import time
 from dataclasses import dataclass
 
@@ -148,14 +149,17 @@ class BinanceWsFeed:
             except asyncio.CancelledError:
                 break
             except Exception as e:
+                # Full jitter: [0, backoff) — thundering herd 방지 표준 관행.
+                jittered = random.random() * backoff
                 logger.warning(
-                    "BinanceWsFeed %s 연결 끊김, %.1fs 후 재시도: %s",
+                    "BinanceWsFeed %s 연결 끊김, %.2fs(jittered, cap=%.1f) 후 재시도: %s",
                     symbol,
+                    jittered,
                     backoff,
                     e,
                 )
                 try:
-                    await asyncio.sleep(backoff)
+                    await asyncio.sleep(jittered)
                 except asyncio.CancelledError:
                     break
                 backoff = min(backoff * 2.0, self._backoff_max)
