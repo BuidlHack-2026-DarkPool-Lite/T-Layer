@@ -30,6 +30,7 @@ class RulesEngine:
         self._book = orderbook
         self._slippage_pct = Decimal(str(slippage_pct))
         self._min_fill = Decimal(str(min_fill))
+        self.last_reasoning: str = ""
 
     def try_match(self, token_pair: str, fair_price: Decimal) -> list[MatchResult]:
         """대기 중인 주문들을 매칭 규칙에 따라 체결."""
@@ -41,6 +42,7 @@ class RulesEngine:
         sells = self._sorted_sells(token_pair)
 
         results: list[MatchResult] = []
+        reasoning_parts: list[str] = []
         buy_idx = 0
         sell_idx = 0
 
@@ -89,6 +91,21 @@ class RulesEngine:
             )
             results.append(result)
 
+            buy_improvement = (
+                (buy.limit_price - fair_price) / buy.limit_price * 100
+                if buy.limit_price > 0 else Decimal("0")
+            )
+            sell_improvement = (
+                (fair_price - sell.limit_price) / sell.limit_price * 100
+                if sell.limit_price > 0 else Decimal("0")
+            )
+            reasoning_parts.append(
+                f"Matched buy@{buy.limit_price} with sell@{sell.limit_price}, "
+                f"execution at fair price {fair_price}, fill {fill_qty} units. "
+                f"Buyer saves {buy_improvement:.2f}% vs limit, "
+                f"seller gains {sell_improvement:.2f}% vs limit."
+            )
+
             logger.info(
                 "매칭 체결: %s ← %s, qty=%s, price=%s",
                 buy.order_id[:8],
@@ -101,6 +118,26 @@ class RulesEngine:
                 buy_idx += 1
             if not sell.is_active:
                 sell_idx += 1
+
+        if results:
+            n_buys = len(buys)
+            n_sells = len(sells)
+            total_fill = sum(r.maker_fill_amount for r in results)
+            summary = (
+                f"Analyzed {n_buys} buy and {n_sells} sell orders "
+                f"using price-time priority matching. "
+                f"Executed {len(results)} match(es), "
+                f"total fill volume {total_fill} units "
+                f"at fair price {fair_price}."
+            )
+            self.last_reasoning = (
+                summary + " " + " ".join(reasoning_parts)
+            )
+        else:
+            self.last_reasoning = (
+                f"Analyzed {len(buys)} buy and {len(sells)} sell orders. "
+                "No compatible price overlap found — no matches executed."
+            )
 
         return results
 
