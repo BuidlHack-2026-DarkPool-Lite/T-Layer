@@ -28,7 +28,9 @@ def extract_enclave_measurement(report: dict) -> str:
     em = report.get("enclave_measurement")
     if em:
         return str(em)
-    for att in report.get("model_attestations", []):
+    for att in report.get("model_attestations") or []:
+        if not isinstance(att, dict):
+            continue
         em = att.get("enclave_measurement")
         if em:
             return str(em)
