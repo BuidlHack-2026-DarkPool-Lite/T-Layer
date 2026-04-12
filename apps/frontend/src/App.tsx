@@ -194,6 +194,7 @@ export default function App() {
   const [executionResult, setExecutionResult] = useState<any>(null);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [attestation, setAttestation] = useState<AttestationResult | null>(null);
+  const [matchReasoning, setMatchReasoning] = useState<{ engine: string; reasoning: string } | null>(null);
   const currentOrderIdRef = useRef<string | null>(null);
 
   // WebSocket onMessage 와 15s 폴백 setTimeout 이 useEffect/startExecutionFlow
@@ -268,6 +269,13 @@ export default function App() {
               if (fallbackTimeoutRef.current !== null) {
                 clearTimeout(fallbackTimeoutRef.current);
                 fallbackTimeoutRef.current = null;
+              }
+              // AI 매칭 근거 저장
+              if (event.reasoning) {
+                setMatchReasoning({
+                  engine: event.engine_used || 'rules',
+                  reasoning: event.reasoning,
+                });
               }
               // 매칭 단계 애니메이션 (5단계)
               setMatchStep(1);
@@ -391,6 +399,7 @@ export default function App() {
       setFlowState('match');
       setMatchStep(0);
       setAttestation(null);
+      setMatchReasoning(null);
 
       // TEE attestation 검증
       try {
@@ -1286,8 +1295,18 @@ export default function App() {
                       <div className="flex items-center gap-2">
                         <span className="text-emerald-500">{'>'}</span>
                         <span className="text-emerald-400/80">Optimal result selected</span>
-                        <span className="text-neutral-600">fill_volume comparison</span>
+                        <span className="text-neutral-600">{matchReasoning?.engine === 'llm' ? 'AI engine won' : 'fill_volume comparison'}</span>
                         <span className="text-emerald-500 ml-auto">OK</span>
+                      </div>
+                    )}
+                    {matchStep >= 4 && matchReasoning && (
+                      <div className="mt-1 px-4 py-2 bg-neutral-900/80 border border-neutral-800/50 rounded">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className={`text-[9px] font-mono uppercase tracking-wider ${matchReasoning.engine === 'llm' ? 'text-purple-400' : 'text-emerald-500/60'}`}>
+                            {matchReasoning.engine === 'llm' ? 'AI Analysis' : 'Engine Analysis'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-neutral-400 leading-relaxed">{matchReasoning.reasoning}</p>
                       </div>
                     )}
                     {/* Step 5: Sign + Settle */}
@@ -1519,6 +1538,19 @@ export default function App() {
                       : 'TEE attestation unavailable — verification skipped'}
                   </div>
                 </div>
+
+                {/* AI Matching Analysis */}
+                {matchReasoning && (
+                  <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-neutral-600 uppercase tracking-wider">Matching Analysis</span>
+                      <span className={`text-[9px] font-mono ${matchReasoning.engine === 'llm' ? 'text-purple-400/60' : 'text-emerald-500/60'}`}>
+                        {matchReasoning.engine === 'llm' ? 'AI engine' : 'rules engine'}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-neutral-400 leading-relaxed">{matchReasoning.reasoning}</p>
+                  </div>
+                )}
 
                 {/* Privacy Report */}
                 <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4 mb-6">
