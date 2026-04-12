@@ -465,6 +465,7 @@ export default function App() {
     setMatchStep(0);
     setExecutionResult(null);
     setFlowError(null);
+    setMatchReasoning(null);
     currentOrderIdRef.current = null;
   };
 
