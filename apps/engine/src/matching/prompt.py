@@ -43,6 +43,11 @@ SYSTEM_PROMPT = """\
 - remaining_orders에는 아직 잔량이 남은 주문만 넣는다.
 - 응답 최상위 키: "matches", "remaining_orders", "fair_price" (이번 라운드에 사용한 공정가, 숫자).
 
+## 7. 매칭 근거 (reasoning)
+응답 JSON에 "reasoning" 키로 매칭 판단 근거를 **영문 한 문단**으로 작성한다.
+포함할 내용: 분석한 주문 수, 선택한 매칭 전략, 체결가 산출 근거, 매수·매도 양측의 price improvement(시장가 대비 개선율 %).
+매칭이 없으면 매칭 불가 사유를 적는다.
+
 위 규칙과 입력 주문·공정가에 맞게 매칭 결과만 JSON으로 반환한다.\
 """
 

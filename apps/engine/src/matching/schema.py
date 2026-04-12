@@ -59,8 +59,9 @@ MATCHING_LLM_JSON_SCHEMA: Final[dict[str, Any]] = {
         "matches": {"type": "array", "items": _MATCH_RESULT_ITEM_SCHEMA},
         "remaining_orders": {"type": "array", "items": _REMAINING_ORDER_ITEM_SCHEMA},
         "fair_price": {"type": "number"},
+        "reasoning": {"type": "string"},
     },
-    "required": ["matches", "remaining_orders", "fair_price"],
+    "required": ["matches", "remaining_orders", "fair_price", "reasoning"],
     "additionalProperties": False,
 }
 
