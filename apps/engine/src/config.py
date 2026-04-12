@@ -16,6 +16,8 @@ NVIDIA_ATTESTATION_URL = os.getenv(
     "NVIDIA_ATTESTATION_URL", "https://nras.attestation.nvidia.com/v3/attest/gpu"
 )
 
+NEAR_AI_MODEL = os.getenv("NEAR_AI_MODEL", "deepseek-ai/DeepSeek-V3.1")
+
 # --- Pricing / Slippage ---
 SLIPPAGE_LIMIT_PCT = float(os.getenv("SLIPPAGE_LIMIT_PCT", "1.5"))
 MIN_FILL_AMOUNT = float(os.getenv("MIN_FILL_AMOUNT", "0"))
