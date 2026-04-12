@@ -1218,7 +1218,11 @@ export default function App() {
                         <span className="text-emerald-500">{'>'}</span>
                         <span className="text-neutral-300">Enclave measurement</span>
                         <span className="text-neutral-600">NEAR AI Cloud</span>
-                        {matchStep >= 2 ? <span className="text-emerald-500 ml-auto">VALID</span> : <Loader2 className="w-3 h-3 text-emerald-400 animate-spin ml-auto" />}
+                        {matchStep >= 2
+                          ? attestation?.success
+                            ? <span className="text-emerald-500 ml-auto">VALID</span>
+                            : <span className="text-amber-500 ml-auto">UNVERIFIED</span>
+                          : <Loader2 className="w-3 h-3 text-emerald-400 animate-spin ml-auto" />}
                       </div>
                     )}
                     {matchStep >= 1 && matchStep < 2 && (
@@ -1230,10 +1234,12 @@ export default function App() {
                     )}
                     {matchStep >= 2 && (
                       <div className="flex items-center gap-2">
-                        <span className="text-emerald-500">{'>'}</span>
+                        <span className={attestation?.success ? 'text-emerald-500' : 'text-amber-500'}>{'>'}</span>
                         <span className="text-neutral-300">GPU attestation</span>
-                        <span className="text-neutral-500">{attestation?.gpu_model || 'NVIDIA H100'}</span>
-                        <span className="text-emerald-500 ml-auto">VERIFIED</span>
+                        <span className="text-neutral-500">{attestation?.gpu_model || '—'}</span>
+                        {attestation?.success
+                          ? <span className="text-emerald-500 ml-auto">VERIFIED</span>
+                          : <span className="text-amber-500 ml-auto">UNVERIFIED</span>}
                       </div>
                     )}
                     {matchStep >= 2 && attestation && (
@@ -1327,7 +1333,9 @@ export default function App() {
                 <div className="mt-3 flex items-center justify-between text-xs font-mono text-neutral-500">
                   <div className="flex items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>{matchStep >= 2 ? 'TEE Verified' : matchStep >= 1 ? 'Verifying TEE...' : 'Attestation pending'}</span>
+                    <span>{matchStep >= 2
+                      ? attestation?.success ? 'TEE Verified' : 'TEE Unverified'
+                      : matchStep >= 1 ? 'Verifying TEE...' : 'Attestation pending'}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className={`w-1.5 h-1.5 rounded-full ${matchStep > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-600'}`} />
@@ -1483,16 +1491,16 @@ export default function App() {
                 <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono text-neutral-600 uppercase tracking-wider">TEE Attestation</span>
-                    <span className="text-[9px] font-mono text-emerald-500/60">pre-verified</span>
+                    <span className={`text-[9px] font-mono ${attestation?.success ? 'text-emerald-500/60' : 'text-amber-500/60'}`}>{attestation?.success ? 'pre-verified' : 'unverified'}</span>
                   </div>
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-neutral-500">Enclave measurement</span>
-                      <span className="font-mono text-emerald-500/70 text-[10px]">{attestation?.enclave_measurement || 'n/a'}</span>
+                      <span className={`font-mono text-[10px] ${attestation?.success ? 'text-emerald-500/70' : 'text-neutral-600'}`}>{attestation?.enclave_measurement || 'n/a'}</span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-neutral-500">GPU attestation</span>
-                      <span className="font-mono text-emerald-500/70 text-[10px]">{attestation ? `${attestation.gpu_model} verified` : 'n/a'}</span>
+                      <span className={`font-mono text-[10px] ${attestation?.success ? 'text-emerald-500/70' : 'text-neutral-600'}`}>{attestation?.success ? `${attestation.gpu_model} verified` : 'n/a'}</span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-neutral-500">Code integrity</span>
