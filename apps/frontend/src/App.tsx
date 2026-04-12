@@ -1504,17 +1504,19 @@ export default function App() {
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-neutral-500">Code integrity</span>
-                      <span className="font-mono text-emerald-500/70 text-[10px]">{attestation?.code_integrity || 'n/a'}</span>
+                      <span className={`font-mono text-[10px] ${attestation?.success ? 'text-emerald-500/70' : 'text-neutral-600'}`}>{attestation?.code_integrity || 'n/a'}</span>
                     </div>
                     {attestation?.signing_addresses?.[0] && (
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-neutral-500">Signing address</span>
-                        <span className="font-mono text-emerald-500/70 text-[10px]">{attestation.signing_addresses[0].substring(0, 8)}...{attestation.signing_addresses[0].substring(36)}</span>
+                        <span className={`font-mono text-[10px] ${attestation?.success ? 'text-emerald-500/70' : 'text-neutral-600'}`}>{attestation.signing_addresses[0].substring(0, 8)}...{attestation.signing_addresses[0].substring(36)}</span>
                       </div>
                     )}
                   </div>
                   <div className="mt-2 pt-2 border-t border-neutral-800 text-[10px] font-mono text-neutral-600">
-                    TEE environment verified before order entered enclave
+                    {attestation?.success
+                      ? 'TEE environment verified before order entered enclave'
+                      : 'TEE attestation unavailable — verification skipped'}
                   </div>
                 </div>
 
