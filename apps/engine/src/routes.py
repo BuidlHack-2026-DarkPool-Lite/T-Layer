@@ -3,12 +3,15 @@
 import asyncio
 import logging
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 
+from src.attestation.verifier import verify_attestation
+from src.config import NEAR_AI_MODEL, NEARAI_CLOUD_API_KEY
 from src.matching.runner import run_matching_cycle
 from src.models import Order, OrderBook
-from src.schemas import OrderCreateRequest, OrderResponse
+from src.schemas import AttestationResponse, OrderCreateRequest, OrderResponse
 from src.ws import ConnectionManager
 
 logger = logging.getLogger(__name__)
@@ -95,6 +98,35 @@ async def cancel_order(order_id: str, request: Request) -> OrderResponse:
     except Exception:
         logger.exception("broadcast 실패 (cancelled, order_id=%s)", order_id)
     return response
+
+
+@router.get("/attestation/verify", response_model=AttestationResponse)
+async def verify_attestation_endpoint() -> AttestationResponse:
+    """TEE attestation 검증 결과를 반환한다."""
+    if not NEARAI_CLOUD_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="attestation backend not configured",
+        )
+
+    try:
+        result = await verify_attestation(NEAR_AI_MODEL)
+    except Exception as exc:
+        logger.exception("attestation 검증 중 예외 발생")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    if not result.success:
+        raise HTTPException(status_code=503, detail=result.error or "attestation 검증 실패")
+
+    return AttestationResponse(
+        success=result.success,
+        enclave_measurement=result.enclave_measurement,
+        signing_addresses=result.signing_addresses,
+        gpu_verified=result.gpu_verified,
+        gpu_model=result.gpu_model,
+        code_integrity="matching_engine v0.1.0",
+        timestamp=datetime.now(UTC).isoformat(),
+    )
 
 
 @router.websocket("/ws")

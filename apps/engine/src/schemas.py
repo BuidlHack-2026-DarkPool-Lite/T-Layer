@@ -3,7 +3,7 @@
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class OrderCreateRequest(BaseModel):
@@ -25,6 +25,20 @@ class OrderResponse(BaseModel):
     wallet_address: str
     status: str
     created_at: str
+
+
+class AttestationResponse(BaseModel):
+    """TEE attestation 검증 응답 — frontend AttestationResult 매핑."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    success: bool
+    enclave_measurement: str
+    signing_addresses: list[str]
+    gpu_verified: bool
+    gpu_model: str
+    code_integrity: str
+    timestamp: str
 
 
 class ErrorResponse(BaseModel):
