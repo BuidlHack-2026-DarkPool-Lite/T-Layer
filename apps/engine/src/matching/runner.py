@@ -36,7 +36,12 @@ async def run_matching_cycle(
             except Exception:
                 logger.exception("MM 봇 on_match_outcomes 실패")
 
-        await ws_manager.broadcast({"action": "matched", "results": outcomes})
+        await ws_manager.broadcast({
+            "action": "matched",
+            "results": outcomes,
+            "engine_used": engine.last_engine_used,
+            "reasoning": engine.last_reasoning,
+        })
 
         submitted = [o for o in outcomes if o.get("tx_hash")]
         if submitted:

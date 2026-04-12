@@ -44,6 +44,8 @@ class MatchingEngine:
 
     def __init__(self, orderbook: OrderBook) -> None:
         self._book = orderbook
+        self.last_engine_used: str = "rules"
+        self.last_reasoning: str = ""
 
     async def run_matching_cycle(self, token_pair: str) -> list[MatchResult]:
         """매칭 사이클을 실행한다.
@@ -84,6 +86,8 @@ class MatchingEngine:
         else:
             rules = RulesEngine(self._book, slippage_pct=slippage_pct)
             results = rules.try_match(token_pair, fair_decimal)
+            self.last_engine_used = "rules"
+            self.last_reasoning = rules.last_reasoning
 
         # 4. 상태 업데이트
         matching_state.update_fair_price(fair_price)
@@ -116,17 +120,20 @@ class MatchingEngine:
                 logger.exception("call_matching failed")
                 return {"error": "exception"}
 
+        rules_engine = RulesEngine(rules_book, slippage_pct=slippage_pct)
+
         async def _rules_coro() -> list[MatchResult]:
-            rules = RulesEngine(rules_book, slippage_pct=slippage_pct)
-            return rules.try_match(token_pair, fair_decimal)
+            return rules_engine.try_match(token_pair, fair_decimal)
 
         rules_results, raw_llm = await asyncio.gather(_rules_coro(), _llm_coro())
 
         rules_fill = sum(r.maker_fill_amount for r in rules_results)
         chosen = rules_results
         use_llm = False
+        llm_reasoning = ""
 
         if isinstance(raw_llm, dict) and not raw_llm.get("error"):
+            llm_reasoning = raw_llm.get("reasoning", "")
             validated = validate_matching_result(
                 raw_llm, orders_snapshot, fair_price, matching_state.prev_fair_price
             )
@@ -140,6 +147,9 @@ class MatchingEngine:
         for m in chosen:
             self._book.fill(m.maker_order_id, m.maker_fill_amount)
             self._book.fill(m.taker_order_id, m.maker_fill_amount)
+
+        self.last_engine_used = "llm" if use_llm else "rules"
+        self.last_reasoning = llm_reasoning if use_llm else rules_engine.last_reasoning
 
         logger.info(
             "dual-pass 완료: %s, %d건 체결",
