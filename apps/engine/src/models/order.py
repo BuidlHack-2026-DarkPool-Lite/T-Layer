@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -24,7 +24,7 @@ class Order(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @model_validator(mode="after")
-    def _check_filled_not_exceeds_amount(self) -> Order:
+    def _check_filled_not_exceeds_amount(self) -> Self:
         if self.filled_amount > self.amount:
             raise ValueError(f"filled_amount({self.filled_amount})가 amount({self.amount})를 초과")
         if self.status == "filled" and self.filled_amount != self.amount:

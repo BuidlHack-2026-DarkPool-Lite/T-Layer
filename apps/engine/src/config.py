@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 """환경변수 기반 통합 설정."""
 
 import os

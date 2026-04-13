@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 """DarkPool Lite TEE Backend — FastAPI entrypoint."""
 
 import asyncio
