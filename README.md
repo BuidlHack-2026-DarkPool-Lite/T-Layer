@@ -210,11 +210,11 @@ Built at **BuidlHack 2026** — BNB Chain + NEAR AI Track.
 
 | Name | Role | Focus |
 |------|------|-------|
-| Seungjae | Contract Lead | Solidity escrow + atomic swap |
-| Hyunseung | TEE Backend | NEAR AI Cloud + matching engine |
-| Kiho | AI Matching | Price feed + optimization |
-| Jinsung | Frontend | wagmi + React UX |
 | Daeyun | PM / Pitch | Strategy + demo + submission |
+| Hyunseung | Lead / TEE Backend | NEAR AI Cloud + matching engine |
+| Jinsung | Frontend | wagmi + React UX |
+| Kiho | AI Matching | Price feed + optimization |
+| Seungjae | Contract Lead | Solidity escrow + atomic swap |
 
 ---
 
@@ -223,3 +223,9 @@ Built at **BuidlHack 2026** — BNB Chain + NEAR AI Track.
 - 🎬 [Demo Video](#) <!-- TODO: insert link -->
 - 📊 [Pitch Deck](#) <!-- TODO: insert link -->
 - 🐦 [Tweet](#) <!-- TODO: insert link -->
+
+---
+
+## License
+
+MIT
