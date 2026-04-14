@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.mm_bot.bot import MMBot
 from src.mm_bot.config import load_mm_settings
@@ -66,6 +67,13 @@ app = FastAPI(
     description="TEE 기반 프라이버시 OTC 매칭 엔진",
     version="0.1.0",
     lifespan=lifespan,
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.include_router(router)
 
