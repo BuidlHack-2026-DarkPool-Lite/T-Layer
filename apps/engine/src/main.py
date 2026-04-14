@@ -1,13 +1,13 @@
-from dotenv import load_dotenv
-load_dotenv()
-
 """DarkPool Lite TEE Backend — FastAPI entrypoint."""
+
+from __future__ import annotations
 
 import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from src.mm_bot.bot import MMBot
@@ -15,6 +15,8 @@ from src.mm_bot.config import load_mm_settings
 from src.models import OrderBook
 from src.routes import router
 from src.ws import ConnectionManager
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 

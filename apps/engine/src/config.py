@@ -1,9 +1,12 @@
-from dotenv import load_dotenv
-load_dotenv()
-
 """환경변수 기반 통합 설정."""
 
+from __future__ import annotations
+
 import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- BSC ---
 BSC_TESTNET_RPC = os.getenv("BSC_RPC_URL", "https://data-seed-prebsc-1-s1.binance.org:8545")
