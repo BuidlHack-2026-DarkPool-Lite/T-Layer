@@ -45,7 +45,7 @@ class MatchingEngine:
 
     def __init__(self, orderbook: OrderBook) -> None:
         self._book = orderbook
-        self.last_engine_used: str = "rules"
+        self.last_engine_used: str = "none"
         self.last_reasoning: str = ""
         self.last_scores: list[dict] | None = None
         self.last_judge_reasoning: str = ""
