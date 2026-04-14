@@ -347,11 +347,16 @@ export default function App() {
 
       // Phase 2: API 주문 생성 + Escrow Deposit
       setFlowState('deposit');
+      // 슬리피지 버퍼: 매수 +1%, 매도 -1% (MM 봇 호가와 겹치도록)
+      const priceNum = parseFloat(price);
+      const bufferedPrice = orderSide === 'buy'
+        ? (priceNum * 1.01).toFixed(6)
+        : (priceNum * 0.99).toFixed(6);
       const orderResponse = await createOrder({
         token_pair: selectedToken.pair,
         side: orderSide,
         amount: amount,
-        limit_price: price,
+        limit_price: bufferedPrice,
         wallet_address: wallet.address!,
       });
 
