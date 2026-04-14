@@ -13,22 +13,7 @@ logger = logging.getLogger(__name__)
 _RPC_TIMEOUT_SEC = 30
 
 
-def _find_repo_root() -> Path:
-    """packages/contracts-abi 디렉토리를 가진 가장 가까운 조상을 찾는다.
-
-    parents[N] 같은 고정 깊이 인덱스는 모듈 위치가 바뀌면 조용히 깨지므로
-    upward-search로 모노레포 루트를 찾는다.
-    """
-    for ancestor in Path(__file__).resolve().parents:
-        if (ancestor / "packages" / "contracts-abi").is_dir():
-            return ancestor
-    raise FileNotFoundError(
-        "packages/contracts-abi 디렉토리를 어떤 조상에서도 찾을 수 없음 — "
-        "모노레포 구조가 깨졌거나 'npm run compile'이 한 번도 실행되지 않았다."
-    )
-
-
-_ABI_PATH = _find_repo_root() / "packages" / "contracts-abi" / "DarkPoolEscrow.json"
+_ABI_PATH = Path(__file__).resolve().parent / "DarkPoolEscrow.json"
 
 try:
     _abi_doc = json.loads(_ABI_PATH.read_text(encoding="utf-8"))
