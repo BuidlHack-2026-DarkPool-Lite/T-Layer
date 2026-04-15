@@ -24,7 +24,7 @@ T-LAYER is a **decentralized dark pool** for MEV-free OTC trading on BNB Chain. 
 
 - **Competitive TEE Matching** — 3 AI strategies race in parallel; a Judge scores and selects the best result. Proves the outcome is better than alternatives.
 - **Double-Layer Privacy** — Wallet addresses are stripped before entering the TEE. Even if the TEE is compromised, trader identity stays hidden.
-- **AI-Powered Pricing** — Real-time fair price aggregated from PancakeSwap & Binance with dynamic slippage guardrails.
+- **AI-Powered Pricing** — Real-time fair price aggregated from Binance, Chainlink oracle, and PancakeSwap with dynamic slippage guardrails.
 - **Atomic Settlement** — Escrow deposit → TEE-signed match → on-chain atomic swap. Zero counterparty risk.
 - **MEV Structural Impossibility** — Not just mitigation — MEV is architecturally impossible because order data only exists inside the TEE.
 
@@ -267,7 +267,7 @@ Traditional DEX market makers lose spread profits to sandwich bots. In T-LAYER, 
 | Smart Contract | Solidity (Hardhat) — BSC Testnet |
 | TEE Engine | Python, FastAPI, NEAR AI Cloud TEE |
 | AI Matching | 4 TEE models: Qwen3-30B-A3B, GPT-OSS-120B (NEAR AI Cloud TEE) |
-| AI Pricing | Multi-source aggregation (PancakeSwap, Binance) |
+| AI Pricing | Multi-source aggregation (Binance, Chainlink, PancakeSwap) |
 | Frontend | React, TypeScript, Vite, wagmi, ethers.js |
 | Verification | NEAR AI attestation + NVIDIA GPU attestation |
 | CI | GitHub Actions (path-filtered matrix) |
