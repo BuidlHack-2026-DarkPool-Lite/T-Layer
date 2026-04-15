@@ -275,15 +275,18 @@ class MatchingEngine:
                 try:
                     self._book.fill(m.maker_order_id, m.maker_fill_amount)
                 except ValueError as exc:
-                    logger.warning(
-                        "maker fill 스킵 (비활성): %s — %s", m.maker_order_id[:8], exc,
+                    # MM bot 오더북 refresh 와의 race — TEE 검증된 매칭은 그대로 진행
+                    logger.info(
+                        "maker fill 스킵 (이미 비활성): %s", m.maker_order_id[:8],
                     )
+                    logger.debug("maker fill exc: %s", exc)
                 try:
                     self._book.fill(m.taker_order_id, m.maker_fill_amount)
                 except ValueError as exc:
-                    logger.warning(
-                        "taker fill 스킵 (비활성): %s — %s", m.taker_order_id[:8], exc,
+                    logger.info(
+                        "taker fill 스킵 (이미 비활성): %s", m.taker_order_id[:8],
                     )
+                    logger.debug("taker fill exc: %s", exc)
                 # TEE 검증 완료된 매칭은 fill 실패와 무관하게 결과에 포함
                 applied.append(m)
 

@@ -104,7 +104,12 @@ class MMEscrowClient:
             h = w3.eth.send_raw_transaction(signed.raw_transaction)
             rx = w3.eth.wait_for_transaction_receipt(h, timeout=120)
         except Exception as exc:
-            logger.error("MM on-chain tx 전송/대기 실패: %s", exc)
+            # nonce too low 는 병렬 전송 중 흔한 transient — 다음 루프에서 자동 복구됨
+            msg = str(exc)
+            if "nonce too low" in msg or "replacement transaction underpriced" in msg:
+                logger.debug("MM tx 일시 실패 (자동 재시도): %s", msg)
+            else:
+                logger.warning("MM on-chain tx 전송/대기 실패: %s", exc)
             return None
         if rx.get("status") != 1:
             logger.error("MM on-chain tx 실패: %s", h.hex())
