@@ -694,7 +694,7 @@ export default function App() {
               <div className="flex-1 relative bg-[#0a0a0a] min-h-[400px] lg:min-h-0 shrink-0 lg:shrink flex flex-col">
                 {/* Exchange Tabs */}
                 <div className="flex items-center gap-1 px-4 py-2 border-b border-neutral-800/50 shrink-0">
-                  {['BINANCE', 'BYBIT', 'OKX'].map((ex) => (
+                  {['BINANCE', 'COINBASE', 'BYBIT', 'OKX'].map((ex) => (
                     <button
                       key={ex}
                       onClick={() => setChartExchange(ex)}
@@ -729,12 +729,19 @@ export default function App() {
                       title="DEX Screener Chart"
                     />
                   ) : (
-                    <iframe
-                      key={`${chartExchange}-${selectedToken.tradingViewPair}`}
-                      src={`https://www.tradingview.com/widgetembed/?symbol=${chartExchange}%3A${selectedToken.tradingViewPair}&interval=60&theme=dark&style=1&timezone=Asia%2FSeoul`}
-                      className="w-full h-full border-none"
-                      title="TradingView Chart"
-                    />
+                    (() => {
+                      const pair = chartExchange === 'COINBASE'
+                        ? selectedToken.tradingViewPair.replace(/USDT$/, 'USD')
+                        : selectedToken.tradingViewPair;
+                      return (
+                        <iframe
+                          key={`${chartExchange}-${pair}`}
+                          src={`https://www.tradingview.com/widgetembed/?symbol=${chartExchange}%3A${pair}&interval=60&theme=dark&style=1&timezone=Asia%2FSeoul`}
+                          className="w-full h-full border-none"
+                          title="TradingView Chart"
+                        />
+                      );
+                    })()
                   )}
                 </div>
               </div>

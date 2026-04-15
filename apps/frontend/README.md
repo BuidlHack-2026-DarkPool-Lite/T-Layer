@@ -39,7 +39,7 @@ src/
 - 9개 토큰 지원 (WBNB, ETH, BTC, SOL, XRP, CAKE, BAKE, XVS, TWT)
 - BEP-20 래핑 토큰 표시
 - Limit 주문 (Buy/Sell)
-- 멀티 거래소 차트 (Binance, Bybit, OKX, DexScreener)
+- 멀티 거래소 차트 (Binance, Coinbase, Bybit, OKX, DexScreener)
 
 ### Order Flow
 1. **Confirm** — 주문 내용 검토 + Escrow 예치 금액 확인
