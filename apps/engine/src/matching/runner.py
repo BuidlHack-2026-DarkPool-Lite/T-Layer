@@ -13,6 +13,18 @@ from src.ws import ConnectionManager
 
 logger = logging.getLogger(__name__)
 
+# 토큰 페어별 매칭 사이클 직렬화 — 두 사이클이 같은 주문을 동시에 채워서
+# "DPE: taker fill exceeds remaining" 로 revert 되는 race 방지.
+_pair_locks: dict[str, asyncio.Lock] = {}
+
+
+def _pair_lock(token_pair: str) -> asyncio.Lock:
+    lock = _pair_locks.get(token_pair)
+    if lock is None:
+        lock = asyncio.Lock()
+        _pair_locks[token_pair] = lock
+    return lock
+
 
 async def run_matching_cycle(
     orderbook: OrderBook,
@@ -22,6 +34,17 @@ async def run_matching_cycle(
     mm_bot: Any | None = None,
 ) -> None:
     """매칭 → 서명 → 제출 → WS 알림. MM 봇은 체결 후 재고 갱신 훅을 받는다."""
+    async with _pair_lock(token_pair):
+        await _run_matching_cycle_locked(orderbook, token_pair, ws_manager, mm_bot=mm_bot)
+
+
+async def _run_matching_cycle_locked(
+    orderbook: OrderBook,
+    token_pair: str,
+    ws_manager: ConnectionManager,
+    *,
+    mm_bot: Any | None = None,
+) -> None:
     engine = MatchingEngine(orderbook)
     try:
         results = await engine.run_matching_cycle(token_pair)
