@@ -55,8 +55,9 @@ T-LAYER is a **decentralized dark pool** for MEV-free OTC trading on BNB Chain. 
 ┌──────────────┐    ┌──────────────────────┐    ┌─────────────────┐
 │ 7. Result    │◀───│ 6. On-chain          │◀───│ 5. TEE          │
 │ to User      │    │ Settlement           │    │ Signature       │
-│ TX hash +    │    │ executeSwap() on BSC │    │ ECDSA +         │
-│ Winner +     │    │ DarkPoolEscrow       │    │ Attestation     │
+│ via WebSocket│    │ executeSwap() on BSC │    │ ECDSA +         │
+│ TX hash +    │    │ DarkPoolEscrow       │    │ NVIDIA GPU      │
+│ Winner +     │    │                      │    │ Attestation     │
 │ Score table  │    │                      │    │                 │
 └──────────────┘    └──────────────────────┘    └─────────────────┘
 ```
@@ -98,9 +99,12 @@ T-Layer/
 ├── apps/
 │   ├── contracts/                # Solidity (Hardhat) — 32 tests
 │   │   ├── contracts/
-│   │   │   ├── DarkPoolEscrow.sol
-│   │   │   └── mocks/           # MockERC20, ReentrancyAttacker
-│   │   ├── scripts/deploy.js
+│   │   │   ├── DarkPoolEscrow.sol   # Escrow + atomic swap + TEE sig verify
+│   │   │   ├── TestToken.sol        # ERC20 test tokens (tUSDT, tBNBT)
+│   │   │   └── mocks/              # MockERC20, ReentrancyAttacker
+│   │   ├── scripts/
+│   │   │   ├── deploy.js            # Escrow-only deploy
+│   │   │   └── deploy-full.js       # Full deploy (tokens + escrow + mint)
 │   │   └── test/DarkPoolEscrow.test.js
 │   ├── engine/                   # Python (FastAPI + NEAR AI TEE)
 │   │   └── src/
@@ -111,10 +115,17 @@ T-Layer/
 │   │       │   ├── runner.py          # Matching cycle orchestrator
 │   │       │   ├── validator.py       # Match result validation
 │   │       │   └── schema.py          # Data models
-│   │       ├── attestation/           # NEAR AI TEE attestation verification
-│   │       ├── pricing/               # PancakeSwap + Binance price feeds
-│   │       ├── signer/                # ECDSA signing for BSC submission
+│   │       ├── attestation/           # NEAR AI + NVIDIA GPU attestation
+│   │       ├── pricing/               # Binance, Chainlink, PancakeSwap feeds
+│   │       │   ├── aggregator.py      # Multi-source price aggregation
+│   │       │   └── dynamic_slippage.py # Volatility-aware slippage control
+│   │       ├── signer/                # ECDSA signing + BSC submission
+│   │       │   ├── hash_builder.py    # EIP-191 struct hash for executeSwap
+│   │       │   ├── signer.py          # TEE wallet ECDSA signing
+│   │       │   ├── submitter.py       # BSC transaction broadcast
+│   │       │   └── pipeline.py        # Sign → submit → broadcast pipeline
 │   │       ├── mm_bot/                # Market maker bot (auto-quotes on BSC testnet)
+│   │       ├── models/                # Order, OrderBook, Match data models
 │   │       └── main.py / routes.py / ws.py
 │   └── frontend/                 # React + Vite + wagmi
 │       └── src/
@@ -171,10 +182,10 @@ cp .env.example .env
 #   DEPLOYER_PRIVATE_KEY=0x...
 #   TEE_SIGNER_ADDRESS=0x... (TEE signer wallet public address)
 
-npx hardhat run scripts/deploy.js --network bscTestnet
+npx hardhat run scripts/deploy-full.js --network bscTestnet
 ```
 
-Save the deployed contract address — you'll need it for the next steps.
+This deploys tUSDT + tBNBT test tokens, DarkPoolEscrow, and mints 100K tokens to the MM bot. Save the output addresses.
 
 Optional — verify on BSCScan:
 ```bash
@@ -206,7 +217,8 @@ cd apps/frontend
 cp .env.example .env
 # Edit .env:
 #   VITE_ESCROW_ADDRESS=0x... (from step 2)
-#   VITE_TOKEN_BNB=0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd
+#   VITE_TOKEN_BNB=0x... (tBNBT address from step 2)
+#   VITE_TOKEN_USDT=0x... (tUSDT address from step 2)
 
 npm install
 npm run dev
@@ -268,8 +280,9 @@ Traditional DEX market makers lose spread profits to sandwich bots. In T-LAYER, 
 | TEE Engine | Python, FastAPI, NEAR AI Cloud TEE |
 | AI Matching | 4 TEE models: Qwen3-30B-A3B, GPT-OSS-120B (NEAR AI Cloud TEE) |
 | AI Pricing | Multi-source aggregation (Binance, Chainlink, PancakeSwap) |
-| Frontend | React, TypeScript, Vite, wagmi, ethers.js |
-| Verification | NEAR AI attestation + NVIDIA GPU attestation |
+| Frontend | React, TypeScript, Vite, wagmi, viem |
+| Real-time | WebSocket (FastAPI ↔ React) — live match results + order updates |
+| Verification | NEAR AI attestation + NVIDIA GPU attestation + ECDSA signature recovery |
 | CI | GitHub Actions (path-filtered matrix) |
 
 ---
