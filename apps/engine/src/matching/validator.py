@@ -106,11 +106,15 @@ def validate_matching_result(
                     ),
                 })
                 continue
-            # 프롬프트 규칙에 따라 체결가 재계산
-            if maker.limit_price <= fair_dec <= taker.limit_price:
-                price_dec = fair_dec
+            # 체결가: fair_price 를 [sell_limit, buy_limit] 로 clamp.
+            # 이렇게 하면 양쪽 limit 를 만족하면서 유저·MM 양측에 가장 공정한
+            # 가격이 나옴. midpoint fallback 은 유저에게 불리할 수 있어 제거.
+            if fair_dec < maker.limit_price:
+                price_dec = maker.limit_price  # fair 가 너무 낮으면 maker 최소가
+            elif fair_dec > taker.limit_price:
+                price_dec = taker.limit_price  # fair 가 너무 높으면 taker 최대가
             else:
-                price_dec = (taker.limit_price + maker.limit_price) / 2
+                price_dec = fair_dec
             import logging as _log
             _log.getLogger(__name__).info(
                 "체결가 보정: LLM=%s → 재계산=%s (fair=%s, buy_limit=%s, sell_limit=%s)",
