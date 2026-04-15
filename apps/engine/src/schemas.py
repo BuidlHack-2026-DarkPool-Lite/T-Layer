@@ -43,6 +43,9 @@ class AttestationResponse(BaseModel):
     signing_addresses: list[str]
     gpu_verified: bool
     gpu_model: str
+    gpu_count: int = 0
+    app_name: str = ""
+    compose_hash: str = ""
     code_integrity: str
     timestamp: str
 

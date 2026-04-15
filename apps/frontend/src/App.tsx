@@ -1698,41 +1698,66 @@ export default function App() {
                 )}
 
                 {/* Page 2: TEE Attestation */}
-                {successPage === 2 && !executionResult.pending && (
-                  <div className="mb-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono text-neutral-600 uppercase tracking-wider">TEE Attestation</span>
-                        <span className={`text-[9px] font-mono ${attestation?.success ? 'text-emerald-500/60' : 'text-amber-500/60'}`}>{attestation?.success ? 'pre-verified' : 'unverified'}</span>
-                      </div>
-                      <div className="mt-3 space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-neutral-500">Enclave measurement</span>
-                          <span className={`font-mono text-[10px] ${attestation?.success ? 'text-emerald-500/70' : 'text-neutral-600'}`}>{attestation?.enclave_measurement || 'n/a'}</span>
+                {successPage === 2 && !executionResult.pending && (() => {
+                  const ok = !!attestation?.success;
+                  const mr = attestation?.enclave_measurement || '';
+                  const mrShort = mr ? `${mr.substring(0, 10)}...${mr.substring(mr.length - 6)}` : 'n/a';
+                  const ch = attestation?.compose_hash || '';
+                  const chShort = ch ? `${ch.substring(0, 10)}...${ch.substring(ch.length - 6)}` : '';
+                  const gpuVal = attestation?.gpu_model
+                    ? (attestation.gpu_count ? `${attestation.gpu_count}× ${attestation.gpu_model}` : attestation.gpu_model)
+                    : 'n/a';
+                  const signer = attestation?.signing_addresses?.[0];
+                  return (
+                    <div className="mb-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-neutral-600 uppercase tracking-wider">TEE Attestation</span>
+                          <span className={`text-[9px] font-mono ${ok ? 'text-emerald-500/60' : 'text-amber-500/60'}`}>
+                            {ok ? 'pre-verified' : 'unverified'}
+                          </span>
                         </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-neutral-500">GPU attestation</span>
-                          <span className={`font-mono text-[10px] ${attestation?.success ? 'text-emerald-500/70' : 'text-neutral-600'}`}>{attestation?.success ? `${attestation.gpu_model} verified` : 'n/a'}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-neutral-500">Code integrity</span>
-                          <span className={`font-mono text-[10px] ${attestation?.success ? 'text-emerald-500/70' : 'text-neutral-600'}`}>{attestation?.code_integrity || 'n/a'}</span>
-                        </div>
-                        {attestation?.signing_addresses?.[0] && (
+                        <div className="mt-3 space-y-2">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="text-neutral-500">Signing address</span>
-                            <span className={`font-mono text-[10px] ${attestation?.success ? 'text-emerald-500/70' : 'text-neutral-600'}`}>{attestation.signing_addresses[0].substring(0, 8)}...{attestation.signing_addresses[0].substring(36)}</span>
+                            <span className="text-neutral-500">Enclave measurement</span>
+                            <span className={`font-mono text-[10px] ${mr ? 'text-emerald-500/70' : 'text-neutral-600'}`} title={mr}>{mrShort}</span>
                           </div>
-                        )}
-                      </div>
-                      <div className="mt-2 pt-2 border-t border-neutral-800 text-[10px] font-mono text-neutral-600">
-                        {attestation?.success
-                          ? 'TEE environment verified before order entered enclave'
-                          : 'TEE attestation unavailable — verification skipped'}
+                          {attestation?.app_name && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-neutral-500">TEE runtime</span>
+                              <span className="font-mono text-[10px] text-emerald-500/70">{attestation.app_name}</span>
+                            </div>
+                          )}
+                          {ch && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-neutral-500">Compose hash</span>
+                              <span className="font-mono text-[10px] text-emerald-500/70" title={ch}>{chShort}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-neutral-500">GPU hardware</span>
+                            <span className={`font-mono text-[10px] ${attestation?.gpu_model ? 'text-emerald-500/70' : 'text-neutral-600'}`}>{gpuVal}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-neutral-500">Code integrity</span>
+                            <span className={`font-mono text-[10px] ${ok ? 'text-emerald-500/70' : 'text-neutral-600'}`}>{attestation?.code_integrity || 'n/a'}</span>
+                          </div>
+                          {signer && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-neutral-500">Signing address</span>
+                              <span className="font-mono text-[10px] text-emerald-500/70" title={signer}>{signer.substring(0, 8)}...{signer.substring(36)}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-neutral-800 text-[10px] font-mono text-neutral-600">
+                          {ok
+                            ? 'Intel TDX + NVIDIA Confidential Computing — signing address used to verify every LLM response'
+                            : 'TEE attestation unavailable — verification skipped'}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Page 3: AI Matching Analysis */}
                 {successPage === 3 && !executionResult.pending && (() => {

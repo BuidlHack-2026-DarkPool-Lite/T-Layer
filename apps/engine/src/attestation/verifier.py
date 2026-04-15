@@ -20,21 +20,60 @@ class AttestationResult:
     gpu_results: list[dict] = field(default_factory=list)
     enclave_measurement: str = ""
     gpu_model: str = ""
+    gpu_count: int = 0
+    app_name: str = ""
+    compose_hash: str = ""
     error: str | None = None
 
 
 def extract_enclave_measurement(report: dict) -> str:
-    """report에서 enclave_measurement를 best-effort 추출한다."""
-    em = report.get("enclave_measurement")
-    if em:
-        return str(em)
+    """NEAR AI report 에서 enclave measurement 추출.
+
+    우선순위:
+    1. model_attestations[0].info.mr_aggregated (Intel TDX 측정값 — 실제 enclave id)
+    2. model_attestations[0].enclave_measurement (legacy)
+    3. top-level enclave_measurement
+    """
     for att in report.get("model_attestations") or []:
         if not isinstance(att, dict):
             continue
+        info = att.get("info")
+        if isinstance(info, dict):
+            mr = info.get("mr_aggregated")
+            if mr:
+                return str(mr)
         em = att.get("enclave_measurement")
         if em:
             return str(em)
+    em = report.get("enclave_measurement")
+    if em:
+        return str(em)
     return ""
+
+
+def extract_tdx_identity(report: dict) -> tuple[str, str]:
+    """NEAR AI report 에서 (app_name, compose_hash) 추출."""
+    for att in report.get("model_attestations") or []:
+        if not isinstance(att, dict):
+            continue
+        info = att.get("info")
+        if isinstance(info, dict):
+            app = str(info.get("app_name") or "")
+            ch = str(info.get("compose_hash") or "")
+            return app, ch
+    return "", ""
+
+
+def extract_nvidia_arch_from_payload(payload_str: str) -> tuple[str, int]:
+    """nvidia_payload JSON 문자열에서 (arch, gpu_count) 추출."""
+    import json as _json
+    try:
+        p = _json.loads(payload_str)
+    except Exception:
+        return "", 0
+    arch = str(p.get("arch") or "")
+    evidence = p.get("evidence_list") or []
+    return arch, len(evidence) if isinstance(evidence, list) else 0
 
 
 def extract_gpu_model_from_jwt(gpu_resp: dict | list) -> str:
@@ -118,11 +157,22 @@ async def verify_attestation(model: str) -> AttestationResult:
     logger.info("TEE signing addresses: %s", addresses)
 
     enclave_measurement = extract_enclave_measurement(report)
+    app_name, compose_hash = extract_tdx_identity(report)
 
     nvidia_payloads = extract_nvidia_payloads(report)
     gpu_results: list[dict] = []
     all_passed = True
     gpu_model = ""
+    gpu_count = 0
+
+    # NEAR AI 의 nvidia_payload 에서 직접 arch / gpu_count 추출.
+    # 여기서 얻는 arch (예: 'HOPPER') 는 실제 TDX 안에서 검증된 GPU 하드웨어 사양.
+    for payload in nvidia_payloads:
+        arch, count = extract_nvidia_arch_from_payload(payload)
+        if arch:
+            gpu_model = arch
+        if count > gpu_count:
+            gpu_count = count
 
     for i, payload in enumerate(nvidia_payloads):
         gpu_resp = await verify_gpu_attestation(payload)
@@ -131,8 +181,10 @@ async def verify_attestation(model: str) -> AttestationResult:
             all_passed = False
             continue
 
-        if not gpu_model:
-            gpu_model = extract_gpu_model_from_jwt(gpu_resp)
+        # JWT 에 hwmodel 있으면 우선 사용 (더 구체적인 모델명).
+        jwt_model = extract_gpu_model_from_jwt(gpu_resp)
+        if jwt_model:
+            gpu_model = jwt_model
 
         eat_token = _extract_jwt_token(gpu_resp)
 
@@ -160,4 +212,7 @@ async def verify_attestation(model: str) -> AttestationResult:
         gpu_results=gpu_results,
         enclave_measurement=enclave_measurement,
         gpu_model=gpu_model,
+        gpu_count=gpu_count,
+        app_name=app_name,
+        compose_hash=compose_hash,
     )

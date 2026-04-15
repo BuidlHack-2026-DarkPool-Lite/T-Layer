@@ -157,6 +157,9 @@ async def verify_attestation_endpoint() -> AttestationResponse:
             signing_addresses=result.signing_addresses,
             gpu_verified=result.gpu_verified,
             gpu_model=result.gpu_model,
+            gpu_count=result.gpu_count,
+            app_name=result.app_name,
+            compose_hash=result.compose_hash,
             code_integrity="matching_engine v0.1.0",
             timestamp=datetime.now(UTC).isoformat(),
         )

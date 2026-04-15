@@ -72,6 +72,9 @@ export interface AttestationResult {
   signing_addresses: string[];
   gpu_verified: boolean;
   gpu_model: string;
+  gpu_count?: number;
+  app_name?: string;
+  compose_hash?: string;
   code_integrity: string;
   timestamp: string;
 }
