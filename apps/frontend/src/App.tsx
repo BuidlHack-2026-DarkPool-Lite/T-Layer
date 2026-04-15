@@ -172,6 +172,7 @@ export default function App() {
   const [price, setPrice] = useState('');
   const [amount, setAmount] = useState('');
   const [tokenBalance, setTokenBalance] = useState('0.00');
+  const [marketPrice, setMarketPrice] = useState<number | null>(null);
 
   // Order Flow State
   const [flowState, setFlowState] = useState<FlowState>('idle');
@@ -217,6 +218,32 @@ export default function App() {
       }
     };
   }, []);
+
+  // ─── Market Price (Binance ticker, 5s polling) ────────────────────────────
+  useEffect(() => {
+    const base = selectedToken.pair.split('/')[0];
+    const symbol = `${base}USDT`;
+    let cancelled = false;
+
+    const fetchPrice = async () => {
+      try {
+        const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+        if (!r.ok) return;
+        const j = await r.json();
+        const p = parseFloat(j.price);
+        if (!cancelled && !isNaN(p)) setMarketPrice(p);
+      } catch {
+        // CORS / network — 무시
+      }
+    };
+
+    fetchPrice();
+    const id = window.setInterval(fetchPrice, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [selectedToken.pair]);
 
   // 성공 페이지 자동 전환 (3초 간격, 마지막 페이지에서 멈춤)
   const autoPageRef = useRef(true);
@@ -915,7 +942,30 @@ export default function App() {
                   <div>
                     <div className="flex justify-between text-xs mb-1.5 text-neutral-500">
                       <span>Price</span>
-                      <span className="font-mono">Limit</span>
+                      <div className="flex items-center gap-2">
+                        {marketPrice !== null && (
+                          <span className="font-mono text-neutral-400">
+                            Market: ${marketPrice.toFixed(2)}
+                          </span>
+                        )}
+                        {marketPrice !== null && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // MM 봇 호가를 넘기는 가격으로 자동 설정
+                              // (MM 스프레드 ~0.3% + 버퍼 0.5% = 0.8%)
+                              const adj = orderSide === 'buy'
+                                ? marketPrice * 1.008
+                                : marketPrice * 0.992;
+                              setPrice(adj.toFixed(2));
+                            }}
+                            className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors font-mono uppercase tracking-wider"
+                          >
+                            Market
+                          </button>
+                        )}
+                        <span className="font-mono">Limit</span>
+                      </div>
                     </div>
                     <div className="bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 flex items-center focus-within:border-neutral-600 transition-colors">
                       <input
