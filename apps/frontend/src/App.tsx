@@ -364,11 +364,19 @@ export default function App() {
     setFlowError(null);
 
     try {
+      // 슬리피지 버퍼: 매수 +1%, 매도 -1% (MM 봇 호가와 겹치도록)
+      // deposit 금액도 반드시 buffered price 로 계산해야 on-chain totalAmount 이
+      // limit_price 와 맞아서 체결 시 "exceeds remaining" revert 를 피할 수 있음.
+      const priceNum = parseFloat(price);
+      const bufferedPrice = orderSide === 'buy'
+        ? (priceNum * 1.01).toFixed(6)
+        : (priceNum * 0.99).toFixed(6);
+
       // Deposit할 토큰 결정: buy면 USDT를 예치, sell이면 해당 토큰을 예치
       const depositSymbol = orderSide === 'buy' ? 'USDT' : selectedToken.symbol;
       const tokenAddress = TOKEN_ADDRESSES[depositSymbol];
       const depositAmount = orderSide === 'buy'
-        ? parseUnits((parseFloat(amount) * parseFloat(price)).toFixed(6), 18)
+        ? parseUnits((parseFloat(amount) * parseFloat(bufferedPrice)).toFixed(6), 18)
         : parseUnits(amount, 18);
 
       // Phase 1: ERC20 Approve
@@ -379,11 +387,6 @@ export default function App() {
 
       // Phase 2: API 주문 생성 + Escrow Deposit
       setFlowState('deposit');
-      // 슬리피지 버퍼: 매수 +1%, 매도 -1% (MM 봇 호가와 겹치도록)
-      const priceNum = parseFloat(price);
-      const bufferedPrice = orderSide === 'buy'
-        ? (priceNum * 1.01).toFixed(6)
-        : (priceNum * 0.99).toFixed(6);
       const orderResponse = await createOrder({
         token_pair: selectedToken.pair,
         side: orderSide,
