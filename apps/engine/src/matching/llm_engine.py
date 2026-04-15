@@ -33,7 +33,7 @@ from src.models.order import Order
 logger = logging.getLogger(__name__)
 
 _DEFAULT_BASE_URL = "https://cloud-api.near.ai/v1"
-_CLIENT_TIMEOUT_SEC = 60.0
+_CLIENT_TIMEOUT_SEC = 120.0
 
 # 역할별 기본 모델 — 각 전략 + Judge에 최적 모델 배정
 _ROLE_MODELS: dict[str, str] = {

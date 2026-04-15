@@ -105,15 +105,28 @@ class MatchingEngine:
         dual_wallets = wallet_buys & wallet_sells
 
         if dual_wallets:
-            other_buy_exists = bool(wallet_buys - dual_wallets)
-            other_sell_exists = bool(wallet_sells - dual_wallets)
+            non_dual_buys = wallet_buys - dual_wallets
+            non_dual_sells = wallet_sells - dual_wallets
 
-            if other_buy_exists:
-                # 다른 지갑의 buy가 있으므로 dual 지갑의 buy 제거 (sell 유지)
-                buys = [o for o in buys if o.wallet_address.lower() not in dual_wallets]
-            if other_sell_exists:
-                # 다른 지갑의 sell이 있으므로 dual 지갑의 sell 제거 (buy 유지)
-                sells = [o for o in sells if o.wallet_address.lower() not in dual_wallets]
+            if non_dual_buys or non_dual_sells:
+                # non-dual 지갑이 있으면 기존 로직: dual 지갑의 반대쪽 제거
+                if non_dual_buys:
+                    buys = [o for o in buys if o.wallet_address.lower() not in dual_wallets]
+                if non_dual_sells:
+                    sells = [o for o in sells if o.wallet_address.lower() not in dual_wallets]
+            else:
+                # 모든 지갑이 dual — 각 dual 지갑은 한쪽만 유지 (교차 매칭 강제)
+                # 지갑을 정렬하여 번갈아 buy/sell 할당
+                sorted_duals = sorted(dual_wallets)
+                keep_buy = set()   # 이 지갑은 buy만 유지
+                keep_sell = set()  # 이 지갑은 sell만 유지
+                for i, w in enumerate(sorted_duals):
+                    if i % 2 == 0:
+                        keep_buy.add(w)
+                    else:
+                        keep_sell.add(w)
+                buys = [o for o in buys if o.wallet_address.lower() in keep_buy]
+                sells = [o for o in sells if o.wallet_address.lower() in keep_sell]
 
             logger.info(
                 "Wash-trade 필터: dual=%s, 필터 후 buy=%d, sell=%d",
