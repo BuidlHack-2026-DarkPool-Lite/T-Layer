@@ -43,7 +43,7 @@ def build_execute_swap_tx(
     nonce: int,
     *,
     gas: int = 300_000,
-    gas_price_gwei: int = 5,
+    gas_price_gwei: int = 1,
 ) -> dict:
     """executeSwap 트랜잭션 딕셔너리를 빌드한다."""
     if not ESCROW_CONTRACT_ADDRESS:

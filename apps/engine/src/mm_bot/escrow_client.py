@@ -51,7 +51,7 @@ class MMEscrowClient:
         self,
         *,
         private_key: str | None,
-        gas_price_gwei: int = 10,
+        gas_price_gwei: int = 1,
         dry_run: bool = False,
     ) -> None:
         self._pk = (private_key or "").strip() or None

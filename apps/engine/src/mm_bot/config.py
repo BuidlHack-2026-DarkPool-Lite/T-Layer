@@ -99,9 +99,9 @@ def load_mm_settings(path: Path | None = None) -> MMSettings:
 
     oc = _as_dict(mm.get("onchain"))
     try:
-        gas_gwei = int(oc.get("gas_price_gwei", 10))
+        gas_gwei = int(oc.get("gas_price_gwei", 1))
     except (TypeError, ValueError):
-        gas_gwei = 10
+        gas_gwei = 1
     onchain = MMOnchainConfig(
         base_token=str(oc.get("base_token", "")).strip(),
         quote_token=str(oc.get("quote_token", "")).strip(),
