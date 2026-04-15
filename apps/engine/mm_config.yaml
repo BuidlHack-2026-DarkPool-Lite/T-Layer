@@ -18,9 +18,9 @@ mm_bot:
     outlier_threshold_pct: 2.0
 
   spread:
-    base_bps: 30
-    min_bps: 10
-    max_bps: 200
+    base_bps: 10
+    min_bps: 5
+    max_bps: 100
     vol_window_sec: 60
     vol_multiplier_max: 3.0
 

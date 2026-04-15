@@ -952,11 +952,12 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => {
-                              // MM 봇 호가를 넘기는 가격으로 자동 설정
-                              // (MM 스프레드 ~0.3% + 버퍼 0.5% = 0.8%)
+                              // MM 호가를 넉넉히 넘기는 가격 — 2% 버퍼.
+                              // TEE 는 이 안에서 fair price 로 체결하므로
+                              // 실제 유저 부담은 시세 수준.
                               const adj = orderSide === 'buy'
-                                ? marketPrice * 1.008
-                                : marketPrice * 0.992;
+                                ? marketPrice * 1.02
+                                : marketPrice * 0.98;
                               setPrice(adj.toFixed(2));
                             }}
                             className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors font-mono uppercase tracking-wider"

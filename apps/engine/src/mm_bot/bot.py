@@ -9,6 +9,7 @@ import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from src.matching.runner import run_matching_cycle
 from src.mm_bot.escrow_client import MMEscrowClient, decimal_to_wei
 from src.mm_bot.inventory import InventoryState
 from src.mm_bot.order_gen import bid_ask_prices
@@ -379,5 +380,9 @@ class MMBot:
                 self._orderbook.add(sell)
                 st["active_sell"] = sell_id
 
-        # 매칭은 유저 주문(POST /order) 시에만 실행.
-        # MM 봇 tick 에서는 호가 배치만 하고 매칭은 트리거하지 않는다.
+        # MM 이 새 호가를 올렸으니 매칭 사이클을 한 번 돌려서, 이미 대기 중인
+        # 유저 주문이 새 호가와 크로스되면 체결시킨다. runner 의 pair lock 이
+        # 중복 실행을 막아준다.
+        asyncio.create_task(
+            run_matching_cycle(self._orderbook, token_pair, self._ws, mm_bot=self)
+        )
