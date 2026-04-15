@@ -190,6 +190,7 @@ export default function App() {
   const priceRef = useRef(price);
   const amountRef = useRef(amount);
   const fallbackTimeoutRef = useRef<number | null>(null);
+  const fallbackPollRef = useRef<number | null>(null);
 
   // Navigation & Orders
   const [activePage, setActivePage] = useState<'trade' | 'orders'>('trade');
@@ -209,6 +210,10 @@ export default function App() {
       if (fallbackTimeoutRef.current !== null) {
         clearTimeout(fallbackTimeoutRef.current);
         fallbackTimeoutRef.current = null;
+      }
+      if (fallbackPollRef.current !== null) {
+        clearInterval(fallbackPollRef.current);
+        fallbackPollRef.current = null;
       }
     };
   }, []);
@@ -278,10 +283,14 @@ export default function App() {
               myOrderIds.has(result.taker_order_id);
 
             if (isMyOrder && flowStateRef.current === 'match') {
-              // 실 매치가 도착했으므로 15s 폴백 타임아웃 취소
+              // 실 매치가 도착했으므로 폴백 타이머/폴 모두 취소
               if (fallbackTimeoutRef.current !== null) {
                 clearTimeout(fallbackTimeoutRef.current);
                 fallbackTimeoutRef.current = null;
+              }
+              if (fallbackPollRef.current !== null) {
+                clearInterval(fallbackPollRef.current);
+                fallbackPollRef.current = null;
               }
               // AI 매칭 근거 저장
               if (event.reasoning) {
@@ -433,55 +442,87 @@ export default function App() {
       }
       setMatchStep(1);
 
-      // 매칭은 WebSocket에서 처리됨
-      // 만약 15초 안에 매칭 안 되면 pending 상태로 종료.
-      // flowStateRef 를 써서 stale closure 회피, fallbackTimeoutRef 에
-      // id 를 저장해 WS 매치 도착 / resetFlow 시 clearTimeout 가능.
+      // 매칭은 WebSocket 으로 처리. 45초 안에 WS 이벤트 못 받으면 pending
+      // 상태로 success 화면을 띄우고, 그 이후에도 15초마다 백엔드 status 를
+      // 폴링해서 뒤늦게 체결되면 자동으로 화면을 업데이트한다.
       if (fallbackTimeoutRef.current !== null) {
         clearTimeout(fallbackTimeoutRef.current);
       }
-      fallbackTimeoutRef.current = window.setTimeout(async () => {
-        fallbackTimeoutRef.current = null;
-        if (flowStateRef.current !== 'match') return;
-        const fallbackPrice = priceRef.current;
-        const fallbackAmount = amountRef.current;
+      if (fallbackPollRef.current !== null) {
+        clearInterval(fallbackPollRef.current);
+      }
 
-        // WS 끊김 대비: 백엔드에 실제 상태 조회 후 체결됐으면 success 로 반영
-        let backendFilled = 0;
-        let backendStatus = 'pending';
-        let backendTxHash: string | null = null;
-        try {
-          const status = await getOrderStatus(orderId);
-          backendFilled = parseFloat(status.filled_amount) || 0;
-          backendStatus = status.status;
-          backendTxHash = status.tx_hash || null;
-        } catch (e) {
-          console.warn('Fallback status check failed:', e);
-        }
-
+      const applyStatus = (
+        backendStatus: string,
+        backendFilled: number,
+        backendTxHash: string | null,
+      ) => {
         const isFilled = backendStatus === 'filled' || backendFilled > 0;
-        // 폴백 경로에서도 tx_hash 복구 — Order history Action 에 BSCScan 링크가 뜨도록.
         if (isFilled && backendTxHash) {
           setMyOrders((prev) =>
             prev.map((o) =>
-              o.id === orderId ? { ...o, status: 'filled' as OrderStatus, filled: 100, txHash: backendTxHash! } : o,
+              o.id === orderId
+                ? { ...o, status: 'filled' as OrderStatus, filled: 100, txHash: backendTxHash }
+                : o,
             ),
           );
         }
-        setMatchStep(2);
-        setFlowState('success');
-        setExecutionResult({
-          price: fallbackPrice,
-          amount: fallbackAmount,
-          total: (parseFloat(fallbackAmount) * parseFloat(fallbackPrice)).toFixed(2),
-          hash: backendTxHash || depositTxHash,
+        setExecutionResult((prev) => ({
+          price: prev?.price ?? priceRef.current,
+          amount: prev?.amount ?? amountRef.current,
+          total:
+            prev?.total ??
+            (parseFloat(amountRef.current) * parseFloat(priceRef.current)).toFixed(2),
+          hash: backendTxHash || prev?.hash || depositTxHash,
           filled: backendFilled,
           pending: !isFilled,
-          engine_used: isFilled ? 'recovered' : null,
-          scores: null,
-          judge_reasoning: isFilled ? 'Match recovered via status poll (WebSocket dropped).' : '',
-        });
-      }, 120000);
+          engine_used: isFilled ? prev?.engine_used ?? 'recovered' : null,
+          scores: prev?.scores ?? null,
+          judge_reasoning: isFilled
+            ? prev?.judge_reasoning ?? 'Match recovered via status poll.'
+            : '',
+        }));
+        return isFilled;
+      };
+
+      const pollStatus = async (): Promise<boolean> => {
+        try {
+          const status = await getOrderStatus(orderId);
+          const filled = parseFloat(status.filled_amount) || 0;
+          return applyStatus(status.status, filled, status.tx_hash || null);
+        } catch (e) {
+          console.warn('Status poll failed:', e);
+          return false;
+        }
+      };
+
+      fallbackTimeoutRef.current = window.setTimeout(async () => {
+        fallbackTimeoutRef.current = null;
+        if (flowStateRef.current !== 'match') return;
+
+        // 첫 폴 — success 화면으로 전환 (pending 가능).
+        setMatchStep(2);
+        setFlowState('success');
+        const filledNow = await pollStatus();
+
+        // 아직 미체결이면 15초마다 반복 폴링 — 뒤늦게 체결되면 자동 반영.
+        if (!filledNow) {
+          fallbackPollRef.current = window.setInterval(async () => {
+            if (flowStateRef.current !== 'success') {
+              if (fallbackPollRef.current !== null) {
+                clearInterval(fallbackPollRef.current);
+                fallbackPollRef.current = null;
+              }
+              return;
+            }
+            const done = await pollStatus();
+            if (done && fallbackPollRef.current !== null) {
+              clearInterval(fallbackPollRef.current);
+              fallbackPollRef.current = null;
+            }
+          }, 15000);
+        }
+      }, 45000);
 
     } catch (err: any) {
       console.error('Order execution failed:', err);
@@ -502,6 +543,10 @@ export default function App() {
     if (fallbackTimeoutRef.current !== null) {
       clearTimeout(fallbackTimeoutRef.current);
       fallbackTimeoutRef.current = null;
+    }
+    if (fallbackPollRef.current !== null) {
+      clearInterval(fallbackPollRef.current);
+      fallbackPollRef.current = null;
     }
     setFlowState('idle');
     setAmount('');
