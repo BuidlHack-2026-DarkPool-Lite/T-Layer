@@ -9,7 +9,12 @@ from src.config import BSC_CHAIN_ID, ESCROW_CONTRACT_ADDRESS, TEE_PRIVATE_KEY
 from src.models.match import MatchResult
 from src.signer.hash_builder import build_swap_struct_hash, to_bytes32
 from src.signer.signer import get_signer_address, sign_swap
-from src.signer.submitter import _make_w3, build_execute_swap_tx, sign_and_send_tx
+from src.signer.submitter import (
+    DARKPOOL_ESCROW_ABI,
+    _make_w3,
+    build_execute_swap_tx,
+    sign_and_send_tx,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +57,47 @@ def sign_match(match: MatchResult) -> tuple[bytes, bytes] | None:
     return signature, struct_hash
 
 
+def _preflight_orders_active(
+    w3: Web3,
+    maker_order_id: str,
+    taker_order_id: str,
+    maker_fill_wei: int,
+    taker_fill_wei: int,
+) -> bool:
+    """executeSwap 전 on-chain 주문 상태 체크 — race 로 인한 revert 방지.
+
+    컨트랙트의 orders 매핑과 getOrderRemaining 을 조회해서
+    active=true 이고 remaining >= fill 인지 확인.
+    """
+    assert ESCROW_CONTRACT_ADDRESS is not None
+    contract = w3.eth.contract(
+        address=Web3.to_checksum_address(ESCROW_CONTRACT_ADDRESS),
+        abi=DARKPOOL_ESCROW_ABI,
+    )
+    for label, order_id, fill_wei in (
+        ("maker", maker_order_id, maker_fill_wei),
+        ("taker", taker_order_id, taker_fill_wei),
+    ):
+        order_bytes = to_bytes32(order_id)
+        order = contract.functions.orders(order_bytes).call()
+        # orders returns (trader, token, totalAmount, filledAmount, active)
+        active = bool(order[4])
+        if not active:
+            logger.info(
+                "executeSwap 스킵 — %s 주문 이미 비활성: %s",
+                label, order_id[:8],
+            )
+            return False
+        remaining = contract.functions.getOrderRemaining(order_bytes).call()
+        if remaining < fill_wei:
+            logger.info(
+                "executeSwap 스킵 — %s 주문 잔량 부족: id=%s remaining=%d fill=%d",
+                label, order_id[:8], remaining, fill_wei,
+            )
+            return False
+    return True
+
+
 def submit_match(match: MatchResult, signature: bytes) -> str | None:
     """서명된 매칭 결과를 BSC에 제출한다.
 
@@ -65,14 +111,26 @@ def submit_match(match: MatchResult, signature: bytes) -> str | None:
     try:
         w3 = _make_w3()
         sender = get_signer_address(TEE_PRIVATE_KEY)
+
+        maker_fill_wei = _to_wei(match.maker_fill_amount)
+        taker_fill_wei = _to_wei(match.taker_fill_amount)
+        if not _preflight_orders_active(
+            w3,
+            match.maker_order_id,
+            match.taker_order_id,
+            maker_fill_wei,
+            taker_fill_wei,
+        ):
+            return None
+
         nonce = w3.eth.get_transaction_count(Web3.to_checksum_address(sender))
 
         tx = build_execute_swap_tx(
             swap_id=to_bytes32(match.swap_id),
             maker_order_id=to_bytes32(match.maker_order_id),
             taker_order_id=to_bytes32(match.taker_order_id),
-            maker_fill_amount=_to_wei(match.maker_fill_amount),
-            taker_fill_amount=_to_wei(match.taker_fill_amount),
+            maker_fill_amount=maker_fill_wei,
+            taker_fill_amount=taker_fill_wei,
             tee_signature=signature,
             sender_address=sender,
             nonce=nonce,
