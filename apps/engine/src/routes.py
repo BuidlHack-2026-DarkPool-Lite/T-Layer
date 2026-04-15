@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 import uuid
 from datetime import UTC, datetime
 
@@ -17,6 +18,12 @@ from src.ws import ConnectionManager
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# attestation 응답 캐시 — NEAR AI / NVIDIA API 가 간헐적으로 느리거나 503 을
+# 뱉는 경우가 있어, 성공한 응답을 잠깐 재사용해서 UX 를 안정화.
+_ATTESTATION_CACHE: dict[str, tuple[float, AttestationResponse]] = {}
+_ATTESTATION_TTL_SEC = 300.0
+_ATTESTATION_LOCK = asyncio.Lock()
 
 
 def _get_orderbook(request: Request) -> OrderBook:
@@ -103,31 +110,53 @@ async def cancel_order(order_id: str, request: Request) -> OrderResponse:
 
 @router.get("/attestation/verify", response_model=AttestationResponse)
 async def verify_attestation_endpoint() -> AttestationResponse:
-    """TEE attestation 검증 결과를 반환한다."""
+    """TEE attestation 검증 결과를 반환한다. 5분 캐시."""
     if not NEARAI_CLOUD_API_KEY:
         raise HTTPException(
             status_code=503,
             detail="attestation backend not configured",
         )
 
-    try:
-        result = await verify_attestation(NEAR_AI_MODEL)
-    except Exception as exc:
-        logger.exception("attestation 검증 중 예외 발생")
-        raise HTTPException(status_code=500, detail="Internal server error") from exc
+    now = time.monotonic()
+    cached = _ATTESTATION_CACHE.get(NEAR_AI_MODEL)
+    if cached is not None and now - cached[0] < _ATTESTATION_TTL_SEC:
+        return cached[1]
 
-    if not result.success:
-        raise HTTPException(status_code=503, detail=result.error or "attestation 검증 실패")
+    # 동시 요청이 모두 upstream 을 두드리지 않도록 직렬화.
+    async with _ATTESTATION_LOCK:
+        cached = _ATTESTATION_CACHE.get(NEAR_AI_MODEL)
+        if cached is not None and time.monotonic() - cached[0] < _ATTESTATION_TTL_SEC:
+            return cached[1]
 
-    return AttestationResponse(
-        success=result.success,
-        enclave_measurement=result.enclave_measurement,
-        signing_addresses=result.signing_addresses,
-        gpu_verified=result.gpu_verified,
-        gpu_model=result.gpu_model,
-        code_integrity="matching_engine v0.1.0",
-        timestamp=datetime.now(UTC).isoformat(),
-    )
+        try:
+            result = await verify_attestation(NEAR_AI_MODEL)
+        except Exception as exc:
+            logger.exception("attestation 검증 중 예외 발생")
+            # 최근 성공한 응답이 있으면 stale 로 반환 — 데모 안정성 우선.
+            if cached is not None:
+                logger.warning("attestation 실패, 최근 캐시 반환")
+                return cached[1]
+            raise HTTPException(status_code=500, detail="Internal server error") from exc
+
+        if not result.success:
+            if cached is not None:
+                logger.warning("attestation 실패(%s), 최근 캐시 반환", result.error)
+                return cached[1]
+            raise HTTPException(
+                status_code=503, detail=result.error or "attestation 검증 실패"
+            )
+
+        response = AttestationResponse(
+            success=result.success,
+            enclave_measurement=result.enclave_measurement,
+            signing_addresses=result.signing_addresses,
+            gpu_verified=result.gpu_verified,
+            gpu_model=result.gpu_model,
+            code_integrity="matching_engine v0.1.0",
+            timestamp=datetime.now(UTC).isoformat(),
+        )
+        _ATTESTATION_CACHE[NEAR_AI_MODEL] = (time.monotonic(), response)
+        return response
 
 
 @router.websocket("/ws")
