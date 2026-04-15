@@ -246,7 +246,8 @@ class MatchingEngine:
                             ),
                         )
                         winner_strategy = winner_result.get("_strategy", "unknown")
-                        logger.warning(
+                        # Judge 의 보수적 선택을 적극 전략으로 교체 — 정상 동작
+                        logger.info(
                             "Judge 선택(%s) 0건 매칭 → %s로 override",
                             _STRATEGY_NAMES[winner_idx], winner_strategy,
                         )
