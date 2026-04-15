@@ -67,10 +67,10 @@ Each role runs on a **different TEE-protected model** inside NEAR AI Cloud for m
 
 | TEE Call | Strategy | Model | Approach |
 |----------|----------|-------|----------|
-| **Call 1: Conservative** | Safe matching | Qwen3-30B | Match by smallest price gap first. If uncertain, don't match. |
-| **Call 2: Volume Max** | Max fill rate | GLM-5 | Fill as many orders as possible. Aggressive partial fills. |
+| **Call 1: Conservative** | Safe matching | Qwen3-30B-A3B | Match by smallest price gap first. If uncertain, don't match. |
+| **Call 2: Volume Max** | Max fill rate | GPT-OSS-120B | Fill as many orders as possible. Aggressive partial fills. |
 | **Call 3: Free Optimizer** | LLM decides | GPT-OSS-120B | Balance fill rate, price quality, and fairness holistically. |
-| **Call 4: Judge** | Score & select | Qwen3.5-122B | Evaluate all 3 results: Fill Rate (40%) + Spread (30%) + Fairness (30%). Pick the winner. |
+| **Call 4: Judge** | Score & select | Qwen3-30B-A3B | Evaluate all 3 results: Fill Rate (40%) + Spread (30%) + Fairness (30%). Pick the winner. |
 
 ### Why Competitive > Single Matching
 
@@ -114,7 +114,7 @@ T-Layer/
 │   │       ├── attestation/           # NEAR AI TEE attestation verification
 │   │       ├── pricing/               # PancakeSwap + Binance price feeds
 │   │       ├── signer/                # ECDSA signing for BSC submission
-│   │       ├── mm_bot/                # Market maker bot (disabled in demo)
+│   │       ├── mm_bot/                # Market maker bot (auto-quotes on BSC testnet)
 │   │       └── main.py / routes.py / ws.py
 │   └── frontend/                 # React + Vite + wagmi
 │       └── src/
@@ -129,13 +129,20 @@ T-Layer/
 
 ---
 
+## Live Demo
+
+| Service | URL |
+|---------|-----|
+| **Frontend** | [tlayer-test1.vercel.app](https://tlayer-test1.vercel.app) |
+| **Engine API** | [t-layer-production.up.railway.app](https://t-layer-production.up.railway.app) |
+
 ## Deployed Contracts (BSC Testnet)
 
 | Contract | Address |
 |----------|---------|
-| **DarkPoolEscrow** | `0x975A48FF9d390fD1866523Eb84b78Bdc9796d307` |
-| **TestToken tUSDT** | `0x66D80B391C20e61F870C2Bd5a9763D77D4859684` |
-| **TestToken tBNBT** | `0x506B8ce6d684B6b852600dd79DE587cF30395633` |
+| **DarkPoolEscrow** | [`0xfc0279c78F800ffb963f89E507e2E6909A40d407`](https://testnet.bscscan.com/address/0xfc0279c78F800ffb963f89E507e2E6909A40d407) |
+| **TestToken tUSDT** | [`0xF34fB8fDe28c4162F998Cf9B42068a828a417bC3`](https://testnet.bscscan.com/address/0xF34fB8fDe28c4162F998Cf9B42068a828a417bC3) |
+| **TestToken tBNBT** | [`0x1Ef37FA15bc5933398a1177EF04302399A4588d4`](https://testnet.bscscan.com/address/0x1Ef37FA15bc5933398a1177EF04302399A4588d4) |
 
 ---
 
@@ -208,12 +215,12 @@ npm run dev
 ### 5. Smoke Test
 
 1. Open the app → Connect MetaMask (BSC Testnet)
-2. **Tab 1 (Bob / MM):** Place a buy order for 100 BNB → approve + deposit
-3. **Tab 2 (Alice / Trader):** Place a sell order for 80 BNB → approve + deposit
-4. Watch 3 strategies compete inside the TEE → Judge picks the winner
-5. Atomic swap executes on-chain
-6. Check BSCScan: only deposit and swap txs visible — **no order info on-chain**
-7. Bob's remaining 20 BNB stays in the pool (partial fill)
+2. Place a **buy** order for BNB → MetaMask approve + deposit
+3. Built-in **MM bot** auto-places the counterparty sell order
+4. Watch 3 strategies compete inside the TEE (~30-60s) → Judge picks the winner
+5. `executeSwap` settles on-chain atomically
+6. Results display across **5 paginated screens**: Trade Summary → TEE Matching → Attestation → Analysis → Privacy Report
+7. Check BSCScan: only deposit and swap txs visible — **no order info on-chain**
 
 ---
 
@@ -259,7 +266,7 @@ Traditional DEX market makers lose spread profits to sandwich bots. In T-LAYER, 
 |-------|------------|
 | Smart Contract | Solidity (Hardhat) — BSC Testnet |
 | TEE Engine | Python, FastAPI, NEAR AI Cloud TEE |
-| AI Matching | 4 TEE models: Qwen3-30B, GLM-5, GPT-OSS-120B, Qwen3.5-122B |
+| AI Matching | 4 TEE models: Qwen3-30B-A3B, GPT-OSS-120B (NEAR AI Cloud TEE) |
 | AI Pricing | Multi-source aggregation (PancakeSwap, Binance) |
 | Frontend | React, TypeScript, Vite, wagmi, ethers.js |
 | Verification | NEAR AI attestation + NVIDIA GPU attestation |
@@ -283,9 +290,8 @@ Built at **BuidlHack 2026** — BNB Chain + NEAR AI Track.
 
 ## Links
 
-- 🎬 [Demo Video](#) <!-- TODO: insert link -->
-- 📊 [Pitch Deck](#) <!-- TODO: insert link -->
-- 🐦 [Tweet](#) <!-- TODO: insert link -->
+- [Live Demo](https://tlayer-test1.vercel.app)
+- [GitHub](https://github.com/BuidlHack-2026-DarkPool-Lite/T-Layer)
 
 ---
 
