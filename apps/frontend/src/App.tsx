@@ -195,10 +195,13 @@ export default function App() {
   const [orderTab, setOrderTab] = useState<'open' | 'history'>('open');
   const [myOrders, setMyOrders] = useState<Order[]>([]);
 
+  const myOrdersRef = useRef<Order[]>(myOrders);
+
   // ─── Ref sync (stale closure 회피) ─────────────────────────────────────────
   useEffect(() => { flowStateRef.current = flowState; }, [flowState]);
   useEffect(() => { priceRef.current = price; }, [price]);
   useEffect(() => { amountRef.current = amount; }, [amount]);
+  useEffect(() => { myOrdersRef.current = myOrders; }, [myOrders]);
   // unmount 시 15s 폴백 타임아웃 확실히 제거
   useEffect(() => {
     return () => {
@@ -243,11 +246,17 @@ export default function App() {
           // 매칭 완료 — 현재 진행 중인 주문 확인
           const currentId = currentOrderIdRef.current;
 
+          // 내 주문 ID 목록 (현재 주문 + 이전 주문 모두)
+          const myOrderIds = new Set<string>();
+          if (currentId) myOrderIds.add(currentId);
+          // myOrders에서 내 주문 ID도 추가
+          myOrdersRef.current.forEach((o: any) => myOrderIds.add(o.id));
+
           for (const result of event.results) {
-            // 내 주문이 매칭된 경우
+            // 내 주문이 매칭된 경우 (현재 주문 또는 이전 주문)
             const isMyOrder =
-              result.maker_order_id === currentId ||
-              result.taker_order_id === currentId;
+              myOrderIds.has(result.maker_order_id) ||
+              myOrderIds.has(result.taker_order_id);
 
             if (isMyOrder && flowStateRef.current === 'match') {
               // 실 매치가 도착했으므로 15s 폴백 타임아웃 취소
