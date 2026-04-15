@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
-import uuid
 from decimal import Decimal
 
 from src.matching.llm_engine import (
@@ -43,58 +42,6 @@ class MatchingEngine:
 
     pricing → volatility → competitive TEE matching → OrderBook 반영.
     """
-
-    def _fast_path_match(
-        self,
-        buys: list,
-        sells: list,
-        fair_decimal: Decimal,
-        orders_snapshot: list,
-    ) -> list[MatchResult]:
-        """단순 크로스 매칭을 LLM 없이 결정론적으로 처리. 데모 UX 우선.
-
-        최고가 buy 와 최저가 sell 을 매치해서 fill = min(buy.remaining,
-        sell.remaining). 체결가는 fair 를 [sell_limit, buy_limit] 로 clamp.
-        wash-trade 방지용 wallet 체크도 여기서.
-        """
-        if not buys or not sells:
-            return []
-
-        best_buy = max(buys, key=lambda o: o.limit_price)
-        best_sell = min(sells, key=lambda o: o.limit_price)
-
-        # 자기매칭 방지
-        if best_buy.wallet_address.lower() == best_sell.wallet_address.lower():
-            return []
-
-        # 가격 크로스 체크 — 안 겹치면 fast-path 포기 (LLM 에 맡김)
-        if best_buy.limit_price < best_sell.limit_price:
-            return []
-
-        # 체결가: fair 를 양 limit 안으로 clamp
-        if fair_decimal < best_sell.limit_price:
-            exec_price = best_sell.limit_price
-        elif fair_decimal > best_buy.limit_price:
-            exec_price = best_buy.limit_price
-        else:
-            exec_price = fair_decimal
-
-        buy_remaining = best_buy.amount - best_buy.filled_amount
-        sell_remaining = best_sell.amount - best_sell.filled_amount
-        fill_amount = min(buy_remaining, sell_remaining)
-        if fill_amount <= 0:
-            return []
-
-        return [
-            MatchResult(
-                swap_id=uuid.uuid4().hex,
-                maker_order_id=best_sell.order_id,
-                taker_order_id=best_buy.order_id,
-                maker_fill_amount=fill_amount,
-                taker_fill_amount=fill_amount * exec_price,
-                exec_price=exec_price,
-            )
-        ]
 
     def __init__(self, orderbook: OrderBook) -> None:
         self._book = orderbook
@@ -204,35 +151,6 @@ class MatchingEngine:
         snapshot_ids = [o.order_id for o in orders_snapshot]
         self._book.lock(snapshot_ids)
         self.last_locked_ids = snapshot_ids
-
-        # ── Fast path: 가격이 명확히 크로스되면 LLM 건너뛰고 즉시 체결 ──
-        # LLM 4번(3 전략 + Judge) 타면 60초 걸려서 유저가 펜딩 체감.
-        # 단순 1-maker × 1-taker 크로스는 LLM 없이 바로 처리.
-        fast_matches = self._fast_path_match(
-            buys, sells, fair_decimal, orders_snapshot
-        )
-        if fast_matches:
-            applied: list[MatchResult] = []
-            for m in fast_matches:
-                try:
-                    self._book.fill(m.maker_order_id, m.maker_fill_amount)
-                except ValueError:
-                    logger.info("fast-path maker fill 스킵: %s", m.maker_order_id[:8])
-                try:
-                    self._book.fill(m.taker_order_id, m.maker_fill_amount)
-                except ValueError:
-                    logger.info("fast-path taker fill 스킵: %s", m.taker_order_id[:8])
-                applied.append(m)
-            self.last_engine_used = "fast_path"
-            self.last_reasoning = (
-                "Immediate deterministic match — prices cross cleanly, "
-                "LLM tournament skipped for speed."
-            )
-            self.last_scores = None
-            self.last_judge_reasoning = ""
-            self.last_tee_verifications = []
-            logger.info("Fast-path 매칭 성공: %d건 체결 (LLM 건너뜀)", len(applied))
-            return applied
 
         # ── Step 1: 3개 전략 병렬 실행 (모두 NEAR AI TEE) ──
         async def _conservative():
