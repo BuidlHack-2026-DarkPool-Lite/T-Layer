@@ -1469,32 +1469,39 @@ export default function App() {
                 {/* Competitive TEE Matching Result */}
                 <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4 mb-4">
                   <span className="text-[10px] font-mono text-neutral-600 uppercase tracking-wider">Competitive TEE Matching</span>
-                  <div className="mt-3 space-y-2">
-                    {(() => {
-                      const winnerEngine = executionResult.engine_used || 'volume_max';
-                      const strategies = [
-                        { name: 'Conservative', key: 'conservative', desc: 'Qwen3-30B-A3B', color: 'emerald' },
-                        { name: 'Volume Max', key: 'volume_max', desc: 'GLM-5-FP8', color: 'amber' },
-                        { name: 'Free Optimizer', key: 'free_optimizer', desc: 'GPT-OSS-120B', color: 'purple' },
-                      ];
-                      return strategies.map(s => {
-                        const isWinner = s.key === winnerEngine;
-                        return (
-                          <div key={s.name} className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2">
-                              <div className={`w-1 h-1 rounded-full bg-${s.color}-500`} />
-                              <span className={isWinner ? 'text-cyan-400 font-bold' : 'text-neutral-400'}>{s.name}</span>
-                              <span className="text-neutral-600 font-mono">{s.desc}</span>
-                              {isWinner && <span className="text-[9px] bg-cyan-400/10 text-cyan-400 px-1.5 py-0.5 rounded font-mono">WINNER</span>}
+                  {executionResult.pending ? (
+                    <div className="mt-3 flex items-center gap-2 text-xs text-neutral-500">
+                      <Loader2 className="w-3 h-3 text-cyan-400 animate-spin" />
+                      <span>Waiting for counterparty — TEE matching will execute when matched</span>
+                    </div>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      {(() => {
+                        const winnerEngine = executionResult.engine_used || 'unknown';
+                        const strategies = [
+                          { name: 'Conservative', key: 'conservative', desc: 'Qwen3-30B-A3B', color: 'emerald' },
+                          { name: 'Volume Max', key: 'volume_max', desc: 'GLM-5-FP8', color: 'amber' },
+                          { name: 'Free Optimizer', key: 'free_optimizer', desc: 'GPT-OSS-120B', color: 'purple' },
+                        ];
+                        return strategies.map(s => {
+                          const isWinner = s.key === winnerEngine;
+                          return (
+                            <div key={s.name} className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-1 h-1 rounded-full bg-${s.color}-500`} />
+                                <span className={isWinner ? 'text-cyan-400 font-bold' : 'text-neutral-400'}>{s.name}</span>
+                                <span className="text-neutral-600 font-mono">{s.desc}</span>
+                                {isWinner && <span className="text-[9px] bg-cyan-400/10 text-cyan-400 px-1.5 py-0.5 rounded font-mono">WINNER</span>}
+                              </div>
+                              <span className={`font-mono ${isWinner ? 'text-cyan-400 font-bold' : 'text-neutral-500'}`}>
+                                {isWinner ? 'SELECTED' : 'DONE'}
+                              </span>
                             </div>
-                            <span className={`font-mono ${isWinner ? 'text-cyan-400 font-bold' : 'text-neutral-500'}`}>
-                              {executionResult.pending ? '—' : isWinner ? 'SELECTED' : 'DONE'}
-                            </span>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
                   <div className="mt-2 pt-2 border-t border-neutral-800 flex items-center justify-between text-[10px]">
                     <span className="font-mono text-neutral-600">Judge: fill_rate(40%) + spread(30%) + fairness(30%)</span>
                     <span className="font-mono text-cyan-400/70">3 strategies + 1 judge = 4 TEE calls</span>
