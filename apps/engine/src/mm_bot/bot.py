@@ -279,6 +279,16 @@ class MMBot:
         Escrow 가 enabled 면 on-chain cancel 이 tx hash 를 돌려줘야 확정으로 간주.
         enabled 가 아니면 로컬 오더북에서만 제거하고 True.
         """
+        # 로컬 오더북에서 먼저 제거 — on-chain cancel tx 를 기다리는 동안
+        # TEE 매칭 사이클이 이 주문을 매칭해서 executeSwap 이 revert 되는
+        # race 를 방지.
+        o = self._orderbook.get(order_id)
+        if o and o.is_active:
+            try:
+                self._orderbook.cancel(order_id)
+            except (KeyError, ValueError):
+                pass
+
         for attempt in range(3):
             try:
                 if self._escrow.enabled:
@@ -288,12 +298,6 @@ class MMBot:
                             await asyncio.sleep(1.0)
                             continue
                         return False
-                o = self._orderbook.get(order_id)
-                if o and o.is_active:
-                    try:
-                        self._orderbook.cancel(order_id)
-                    except (KeyError, ValueError):
-                        pass
                 return True
             except Exception:
                 logger.exception("MM 주문 취소 실패 order=%s attempt=%s", order_id[:8], attempt + 1)

@@ -115,21 +115,21 @@ def submit_match(match: MatchResult, signature: bytes) -> str | None:
 
         maker_fill_wei = _to_wei(match.maker_fill_amount)
         taker_fill_wei = _to_wei(match.taker_fill_amount)
-        if not _preflight_orders_active(
+        # preflight 는 경고만 — tx 는 어쨌든 보내서 프론트에 링크가 남도록 한다.
+        _preflight_orders_active(
             w3,
             match.maker_order_id,
             match.taker_order_id,
             maker_fill_wei,
             taker_fill_wei,
-        ):
-            return None
+        )
 
         swap_id_bytes = to_bytes32(match.swap_id)
         maker_bytes = to_bytes32(match.maker_order_id)
         taker_bytes = to_bytes32(match.taker_order_id)
 
-        # 최종 시뮬레이션 — preflight 후 race 로 상태가 바뀌어도 여기서 잡힘.
-        # 실패 시 revert tx 가 아예 체인에 안 남음.
+        # 시뮬레이션은 진단 목적으로만 — 실패해도 tx 는 보낸다.
+        # (BSCScan 에 링크는 남아야 하고, 프론트에 tx_hash 를 공급해야 함.)
         ok, reason = simulate_execute_swap(
             swap_id=swap_id_bytes,
             maker_order_id=maker_bytes,
@@ -141,10 +141,9 @@ def submit_match(match: MatchResult, signature: bytes) -> str | None:
         )
         if not ok:
             logger.info(
-                "executeSwap 시뮬레이션 실패 — 제출 생략: swap_id=%s reason=%s",
+                "executeSwap 시뮬 경고 (그래도 제출): swap_id=%s reason=%s",
                 match.swap_id[:8], reason[:160],
             )
-            return None
 
         nonce = w3.eth.get_transaction_count(Web3.to_checksum_address(sender))
 
