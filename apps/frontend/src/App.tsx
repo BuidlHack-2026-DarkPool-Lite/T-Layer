@@ -278,6 +278,10 @@ export default function App() {
                   total: (parseFloat(orderAmount) * parseFloat(execPrice)).toFixed(2),
                   hash: result.tx_hash || '',
                   filled: 100,
+                  pending: false,
+                  engine_used: event.engine_used || 'volume_max',
+                  scores: event.scores || null,
+                  judge_reasoning: event.judge_reasoning || '',
                 });
                 setFlowState('success');
               }, 2000);
@@ -425,6 +429,9 @@ export default function App() {
             hash: depositTxHash,
             filled: 0,
             pending: true,
+            engine_used: null,
+            scores: null,
+            judge_reasoning: '',
           });
         }, 2000);
       }, 15000);
@@ -1295,7 +1302,7 @@ export default function App() {
                         <span className="text-cyan-400">{'>'}</span>
                         <span className="text-cyan-400/80">Qwen3.5-122B-A10B</span>
                         <span className="text-neutral-600">Judge · fill(40%)+spread(30%)+fair(30%)</span>
-                        <span className="text-cyan-400 ml-auto">WINNER: {executionResult?.judge_reasoning || 'Selected'}</span>
+                        <span className="text-cyan-400 ml-auto">WINNER: {executionResult?.engine_used || matchReasoning?.engine || 'Evaluating...'}</span>
                       </div>
                     )}
                     {/* Step 5: Sign + Settle */}
@@ -1472,21 +1479,30 @@ export default function App() {
                 <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4 mb-4">
                   <span className="text-[10px] font-mono text-neutral-600 uppercase tracking-wider">Competitive TEE Matching</span>
                   <div className="mt-3 space-y-2">
-                    {[
-                      { name: 'Conservative', desc: 'Qwen3-30B-A3B', score: executionResult.scores?.conservative, color: 'emerald', winner: false },
-                      { name: 'Volume Max', desc: 'GLM-5-FP8', score: executionResult.scores?.volume_max, color: 'amber', winner: false },
-                      { name: 'Free Optimizer', desc: 'GPT-OSS-120B', score: executionResult.scores?.free_optimizer, color: 'purple', winner: true },
-                    ].map(s => (
-                      <div key={s.name} className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-1 h-1 rounded-full bg-${s.color}-500`} />
-                          <span className={s.winner ? 'text-cyan-400 font-bold' : 'text-neutral-400'}>{s.name}</span>
-                          <span className="text-neutral-600 font-mono">{s.desc}</span>
-                          {s.winner && <span className="text-[9px] bg-cyan-400/10 text-cyan-400 px-1.5 py-0.5 rounded font-mono">WINNER</span>}
-                        </div>
-                        <span className={`font-mono ${s.winner ? 'text-cyan-400 font-bold' : 'text-neutral-500'}`}>{s.score || '—'}</span>
-                      </div>
-                    ))}
+                    {(() => {
+                      const winnerEngine = executionResult.engine_used || 'volume_max';
+                      const strategies = [
+                        { name: 'Conservative', key: 'conservative', desc: 'Qwen3-30B-A3B', color: 'emerald' },
+                        { name: 'Volume Max', key: 'volume_max', desc: 'GLM-5-FP8', color: 'amber' },
+                        { name: 'Free Optimizer', key: 'free_optimizer', desc: 'GPT-OSS-120B', color: 'purple' },
+                      ];
+                      return strategies.map(s => {
+                        const isWinner = s.key === winnerEngine;
+                        return (
+                          <div key={s.name} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-1 h-1 rounded-full bg-${s.color}-500`} />
+                              <span className={isWinner ? 'text-cyan-400 font-bold' : 'text-neutral-400'}>{s.name}</span>
+                              <span className="text-neutral-600 font-mono">{s.desc}</span>
+                              {isWinner && <span className="text-[9px] bg-cyan-400/10 text-cyan-400 px-1.5 py-0.5 rounded font-mono">WINNER</span>}
+                            </div>
+                            <span className={`font-mono ${isWinner ? 'text-cyan-400 font-bold' : 'text-neutral-500'}`}>
+                              {executionResult.pending ? '—' : isWinner ? 'SELECTED' : 'DONE'}
+                            </span>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                   <div className="mt-2 pt-2 border-t border-neutral-800 flex items-center justify-between text-[10px]">
                     <span className="font-mono text-neutral-600">Judge: fill_rate(40%) + spread(30%) + fairness(30%)</span>
