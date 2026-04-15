@@ -41,6 +41,6 @@ mm_bot:
     # 가져오지만 deposit/cancel 은 BSC_TESTNET_RPC 로 발생하므로 여기 토큰도
     # 테스트넷 주소여야 한다. quote_token 은 사용자가 보유한 테스트넷
     # 스테이블 주소로 교체해야 한다 (공식 테스트넷 USDT 는 없음).
-    base_token: "0x506B8ce6d684B6b852600dd79DE587cF30395633"   # tBNBT
-    quote_token: "0x66D80B391C20e61F870C2Bd5a9763D77D4859684"  # tUSDT
+    base_token: "0x1Ef37FA15bc5933398a1177EF04302399A4588d4"   # tBNBT (frontend VITE_TOKEN_BNB)
+    quote_token: "0xF34fB8fDe28c4162F998Cf9B42068a828a417bC3"  # tUSDT (frontend VITE_TOKEN_USDT)
     gas_price_gwei: 3
