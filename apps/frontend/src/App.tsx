@@ -268,7 +268,7 @@ export default function App() {
     if (successPage >= 4) return;
     const timer = setTimeout(() => {
       if (autoPageRef.current) setSuccessPage(p => Math.min(p + 1, 4));
-    }, 3000);
+    }, 6000);
     return () => clearTimeout(timer);
   }, [flowState, successPage, executionResult?.pending]);
 
