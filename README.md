@@ -305,7 +305,7 @@ Built at **BuidlHack 2026** — BNB Chain + NEAR AI Track.
 
 - [Live Demo](https://tlayer-test1.vercel.app)
 - [GitHub](https://github.com/BuidlHack-2026-DarkPool-Lite/T-Layer)
-
+- [Demo Video](https://www.youtube.com/watch?v=DU6H3VlQrfU)
 ---
 
 ## License
